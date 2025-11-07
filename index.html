@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بوابة متحف الفكر وادارة المحتوى (محلي)</title>
+    <!-- تضمين Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        }
+        /* تدرج الأزرق الليلي مع العمق الرملي */
+        .main-bg {
+            background: linear-gradient(135deg, #1f2937 0%, #171717 100%); /* Deep Zinc/Black-Blue */
+        }
+        /* تنسيق المحتوى ليتناسب مع التصميم */
+        .section-body-rendered p { margin-bottom: 1rem; }
+        .section-body-rendered strong { font-weight: bold; }
+        .section-body-rendered ul { list-style: disc; margin-right: 1.5rem; padding-right: 0.5rem; margin-bottom: 1rem;}
+        .section-body-rendered .highlight-quote {
+            border-right: 4px solid #f59e0b; /* amber-500 */
+            background-color: #fffbeb; /* bg-amber-50 */
+            padding: 1rem;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            font-style: italic;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            color: #1f2937; /* text-gray-800 */
+        }
+        .editor-textarea { min-height: 150px; }
+        .error-flash { transition: opacity 0.5s ease-out; }
+    </style>
+</head>
+<body class="main-bg min-h-screen flex items-center justify-center p-4">
+
+    <!-- تم تغيير bg-white إلى bg-stone-100 (لون رملي ناعم) -->
+    <div id="app" class="w-full max-w-4xl bg-stone-100 shadow-2xl rounded-xl p-6 md:p-10 transition-all duration-500">
+        
+        <!-- رسالة الخطأ العامة -->
+        <div id="global-error-message" class="hidden fixed top-0 right-0 m-4 p-3 bg-rose-700 text-white rounded-lg shadow-xl z-50 error-flash opacity-0">
+            <p id="global-error-text" class="font-semibold"></p>
+        </div>
+
+        <!-- Loader / مؤشر التحميل - تم تبسيطه -->
+        <div id="loader" class="flex flex-col items-center justify-center h-96 text-gray-700">
+            <svg class="animate-spin h-8 w-8 text-blue-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-4 text-lg">جارِ تهيئة بيانات التطبيق المحلية...</p>
+        </div>
+
+        <!-- نظام التسجيل (Registration View) -->
+        <div id="registration-view" class="hidden">
+            <h1 class="text-3xl font-extrabold text-blue-900 mb-6 text-center">انضم إلى متحف الفكر</h1>
+            <p class="text-gray-600 mb-8 text-center">أدخل بياناتك لتبدأ في استكشاف أثرك الفكري.</p>
+            
+            <form id="registration-form" class="space-y-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">الاسم</label>
+                    <input type="text" id="name" name="name" required class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-800 focus:border-blue-800 transition duration-150">
+                </div>
+                
+                <div>
+                    <label for="specialty" class="block text-sm font-medium text-gray-700">التخصص</label>
+                    <input type="text" id="specialty" name="specialty" required class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-800 focus:border-blue-800 transition duration-150">
+                </div>
+                
+                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-lg font-medium text-white bg-blue-800 hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700 transition duration-150">
+                    تسجيل الدخول والاستكشاف
+                </button>
+            </form>
+            <p id="error-message" class="text-rose-600 text-sm mt-4 text-center hidden"></p>
+        </div>
+
+        <!-- الواجهة الرئيسية (Home View - للمستخدم العادي) -->
+        <div id="home-view" class="hidden">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b border-gray-300">
+                <h1 class="text-3xl font-extrabold text-blue-900">أهلاً بك يا <span id="user-display-name">...</span>!</h1>
+                <button onclick="window.location.reload();" class="text-sm text-blue-700 hover:text-blue-900 font-medium">
+                    تسجيل الخروج/العودة للقائمة
+                </button>
+            </div>
+
+            <div id="main-menu" class="space-y-3">
+                <div class="text-center mb-8 p-4 bg-stone-200 rounded-lg shadow-inner">
+                    <h2 class="text-3xl font-extrabold text-blue-900">🎨✨ متحف الفكر</h2>
+                    <p class="text-lg text-gray-600 mt-1">حيث تولد الأفكار وتبقى خالدة ✨</p>
+                </div>
+                <!-- قائمة الأقسام يتم توليدها ديناميكياً هنا -->
+                <div id="dynamic-sections-list">
+                    <!-- سيتم ملؤها بواسطة JS -->
+                </div>
+            </div>
+
+            <!-- محتوى القسم للمستخدم العادي -->
+            <div id="section-content" class="hidden bg-stone-200 p-6 rounded-lg shadow-inner">
+                <h2 id="section-title" class="text-3xl font-bold text-gray-800 mb-4 border-b pb-2 border-gray-400"></h2>
+                <div id="section-body" class="text-gray-700 leading-relaxed text-lg text-right section-body-rendered"></div>
+                <button onclick="globalApp.changeView('main-menu')" class="mt-8 py-2 px-4 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition duration-150">
+                    العودة للقائمة الرئيسية
+                </button>
+            </div>
+        </div>
+
+        <!-- واجهة الإدارة والمحتوى (Management View - للمدير) -->
+        <div id="management-view" class="hidden">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b border-rose-200">
+                <h1 class="text-3xl font-extrabold text-rose-800">🔐 لوحة إدارة المحتوى (التخزين المحلي)</h1>
+                <button onclick="window.location.reload();" class="text-sm text-rose-700 hover:text-rose-900 font-medium">
+                    تسجيل الخروج
+                </button>
+            </div>
+            
+            <!-- زر الإضافة -->
+            <button onclick="globalApp.openEditorModal('new')" class="mb-6 py-2 px-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition duration-150 shadow-md">
+                + إضافة قسم جديد (قالب بسيط)
+            </button>
+
+            <!-- قائمة الأقسام القابلة للتعديل -->
+            <div class="space-y-3" id="editable-sections-list">
+                <!-- سيتم ملؤها بواسطة JS -->
+            </div>
+        </div>
+
+        <!-- نموذج التعديل (Modal/Form) -->
+        <div id="editor-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div class="bg-stone-100 rounded-xl shadow-2xl w-full max-w-2xl p-6 relative overflow-y-auto max-h-screen">
+                <h2 id="editor-title-text" class="text-2xl font-bold text-blue-900 mb-4 border-b pb-2">تعديل القسم</h2>
+                <form id="section-editor-form" class="space-y-4">
+                    <input type="hidden" id="editor-doc-id">
+                    <input type="hidden" id="editor-type">
+                    
+                    <div>
+                        <label for="editor-menu-title" class="block text-sm font-medium text-gray-700">عنوان القائمة (للاختصار)</label>
+                        <input type="text" id="editor-menu-title" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-700 focus:border-blue-700">
+                    </div>
+
+                    <div>
+                        <label for="editor-full-title" class="block text-sm font-medium text-gray-700">العنوان الكامل (داخل القسم)</label>
+                        <input type="text" id="editor-full-title" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-700 focus:border-blue-700">
+                    </div>
+                    
+                    <div id="dynamic-editor-fields" class="space-y-4 border p-4 rounded-lg bg-stone-200">
+                        <!-- حقول التعديل البسيطة (النص الصافي) يتم توليدها هنا -->
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 space-x-reverse">
+                        <button type="button" onclick="globalApp.closeEditorModal()" class="py-2 px-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-150">إلغاء</button>
+                        <button type="submit" id="editor-save-btn" class="py-2 px-4 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition duration-150">حفظ التعديلات</button>
+                    </div>
+                </form>
+                
+                <p id="modal-error-message" class="text-rose-600 text-sm mt-4 text-center hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================================
+        //         1. تعريف البيانات والقوالب الأساسية
+        // ==========================================================
+
+        const ADMIN_NAME = 'MUF';
+        const ADMIN_SPECIALTY = 'CS';
+        const STORAGE_KEY = 'muf_sections_data'; // مفتاح التخزين المحلي
+
+        let globalSectionsData = []; // سيتم تخزين بيانات الأقسام هنا في الذاكرة
+
+        // تعريف القوالب (Template Definitions) - كما كانت في الكود الأصلي
+        const templates = {
+            'basic_highlight': {
+                editorFields: [
+                    { key: 'p1', label: 'الفقرة الافتتاحية', type: 'textarea' },
+                    { key: 'p2', label: 'الفقرة الثانية', type: 'textarea' },
+                    { key: 'p3_highlight', label: 'الجملة البارزة والملخصة (ستظهر بخط عريض وبارز)', type: 'textarea' },
+                    { key: 'p4', label: 'فقرة الختام', type: 'textarea' }
+                ],
+                render: (fields) => `
+                    <p class="text-xl">${fields.p1}</p>
+                    <p class="mt-4">${fields.p2}</p>
+                    <p class="mt-4 text-2xl font-extrabold text-blue-900 leading-snug border-b-2 border-amber-500 pb-2">${fields.p3_highlight}</p>
+                    <p class="mt-4 text-lg text-amber-600">${fields.p4}</p>
+                `
+            },
+            'list_items': {
+                 editorFields: [
+                    { key: 'intro', label: 'نص المقدمة (قبل القائمة)', type: 'textarea' },
+                    { key: 'listTitle', label: 'عنوان القائمة الفرعي', type: 'input' },
+                    { key: 'listItems', label: 'عناصر القائمة (ضع كل عنصر في سطر جديد)', type: 'textarea', placeholder: 'العنصر الأول\nالعنصر الثاني\n...' }
+                ],
+                render: (fields) => {
+                    const items = (fields.listItems || '').split('\n').filter(item => item.trim() !== '');
+                    const iconList = ['✍️', '🎨', '💬', '📚', '⭐', '💎', '💡', '🏆'];
+                    let listHtml = items.map((item, index) => {
+                        const icon = iconList[index % iconList.length];
+                        return `<li class="flex items-start text-lg"><span class="ml-2 text-2xl text-blue-700">${icon}</span> <span class="font-medium">${item.trim()}</span></li>`;
+                    }).join('');
+
+                    return `
+                        <p class="text-xl">${fields.intro}</p>
+                        <p class="mt-4 font-bold text-lg">${fields.listTitle}</p>
+                        <ul class="space-y-3 list-none pr-0">${listHtml}</ul>
+                    `;
+                }
+            },
+            'quote_block': {
+                editorFields: [
+                    { key: 'p1', label: 'الفقرة الأولى', type: 'textarea' },
+                    { key: 'p2', label: 'الفقرة الثانية (تمهيد للاقتباس)', type: 'textarea' },
+                    { key: 'quote', label: 'الاقتباس الرئيسي (سيظهر في إطار بارز)', type: 'textarea' }
+                ],
+                render: (fields) => `
+                    <p class="text-xl">${fields.p1}</p>
+                    <p class="mt-4 text-lg">${fields.p2}</p>
+                    <blockquote class="highlight-quote">${fields.quote}</blockquote>
+                `
+            },
+            'final_call': {
+                 editorFields: [
+                    { key: 'call_title', label: 'جملة الدعوة الرئيسية (ستظهر بخط عريض)', type: 'textarea' },
+                    { key: 'call_subtitle', label: 'جملة التشجيع (أسفل الجملة الرئيسية)', type: 'textarea' },
+                    { key: 'final_signature', label: 'عبارة الختام الرئيسية', type: 'input' }
+                ],
+                render: (fields) => `
+                    <div class="p-6 bg-blue-100 rounded-xl shadow-lg text-center">
+                        <p class="text-3xl font-extrabold mb-4 leading-tight text-blue-900">${fields.call_title}</p>
+                        <p class="text-xl font-light italic text-gray-700">${fields.call_subtitle}</p>
+                    </div>
+                    <p class="mt-8 text-2xl font-extrabold text-blue-900 text-center">🎓 ${fields.final_signature}</p>
+                `
+            }
+        };
+
+        // البيانات الأولية (لتشغيل التطبيق لأول مرة فقط)
+        const initialSectionsData = [
+            { id: 'sec-1', order: 1, menuTitle: '🧭 لماذا هذا المشروع مهم؟', title: '🧭 لماذا هذا المشروع مهم؟', type: 'basic_highlight', 
+              fields: { 
+                  p1: "في كل طالب، هناك عالم غير مكتشف: فكرة عميقة، لوحة لم تُعرض، أو كلمة لم تجد من يسمعها.", 
+                  p2: "متحف الفكر ليس مشروعًا عاديًا…",
+                  p3_highlight: "إنه منصة تصنع التاريخ الشخصي والفكري لكل طالب.",
+                  p4: "هنا، نُحوّل الأفكار الصامتة إلى أثر خالد داخل الجامعة."
+              }},
+            { id: 'sec-2', order: 2, menuTitle: '🏛️ ما هو متحف الفكر؟', title: '🏛️ ما هو متحف الفكر؟', type: 'list_items',
+              fields: { 
+                  intro: "هو مساحة فكرية حرة داخل الجامعة — زاوية أو جدار أو قاعة — تجمع بين الفلسفة، الفن، والإبداع.", 
+                  listTitle: "مكان يُعبّر فيه الطلاب عن ذواتهم من خلال:",
+                  listItems: "تأملاتهم وأفكارهم.\nلوحاتهم ورسوماتهم الرمزية.\nاقتباساتهم ومقالاتهم القصيرة.\nأسئلتهم الوجودية ورسائلهم للأجيال القادمة."
+              }},
+            { id: 'sec-3', order: 3, menuTitle: '💡 ما الذي يجعل هذا المشروع مختلفًا؟', title: '💡 ما الذي يجعل هذا المشروع مختلفًا؟', type: 'quote_block',
+              fields: { 
+                  p1: "لأنه يمسّ جوهر الإنسان.", 
+                  p2: "نحن لا نعرض الدرجات أو الشهادات، بل نُظهر ما يجعلنا بشرًا: التفكير، الإحساس، الإبداع.", 
+                  quote: "أنت لست مجرد رقم جامعي، أنت فكرة تستحق أن تُخلّد."
+              }},
+            { id: 'sec-4', order: 4, menuTitle: '🌿 ما الفائدة التي سيجنيها المشاركون؟', title: '🌿 ما الفائدة التي سيجنيها المشاركون؟', type: 'list_items',
+              fields: { 
+                  intro: "لكل طالب أو دكتور يشارك… هناك قيمة حقيقية تعود إليه:", 
+                  listTitle: "الفوائد الرئيسية:",
+                  listItems: "الشهرة الفكرية: سيكون اسمك موقّعًا في “دفتر الذاكرة الفكرية” الذي سيبقى للأجيال.\nالبوابة الأولى لأعمالك: مقالك، رسوماتك، أو أفكارك ستكون البداية لمسيرتك الإبداعية.\nمجتمع فكري حقيقي: تلتقي بعقول تشبهك، تناقش، وتترك أثرك في ذاكرة المكان.\nتجربة إنسانية فريدة: ستعود بعد سنوات لتجد آثارك الفكرية باقية… تشهد على من كنت يومًا."
+              }},
+            { id: 'sec-5', order: 5, menuTitle: '🚀 لماذا يجب أن تدعم هذا المشروع؟', title: '🚀 لماذا يجب أن تدعم هذا المشروع؟', type: 'quote_block',
+              fields: { 
+                  p1: "لأنك حين تدعم متحف الفكر، فأنت لا تدعم ركنًا جامعيًا… بل تدعم فكرة أن الإنسان يصنع أثره بالفكر لا بالمال.", 
+                  p2: "كل لوحة، كل اقتباس، كل مشاركة — هي استثمار في روح الجامعة.",
+                  quote: "من يدعم الفكرة اليوم، سيُذكر غدًا بأنه ساهم في بناء ذاكرة الجامعة الفكرية الأولى."
+              }},
+            { id: 'sec-6', order: 6, menuTitle: '🎭 المستقبل والتوسّع', title: '🎭 المستقبل والتوسّع', type: 'list_items',
+              fields: { 
+                  intro: "متحف الفكر ليس لحظة مؤقتة، بل بذرة مشروع ثقافي دائم.", 
+                  listTitle: "مع الوقت، ستقام من خلاله:",
+                  listItems: "معارض فكرية وفنية دورية.\nمسابقات تحفيزية لأفضل المشاركات.\nندوات حول الفلسفة والإبداع والوعي الذاتي."
+              }},
+            { id: 'sec-7', order: 7, menuTitle: '✨ الدعوة الأخيرة', title: '✨ الدعوة الأخيرة', type: 'final_call',
+              fields: { 
+                  call_title: "شارك بفكرة، كلمة، لوحة، أو حتى سؤال وجودي.", 
+                  call_subtitle: "اترك أثرًا يُشبهك، لأن ما تزرعه اليوم سيكون ذاكرة الجامعة غدًا.",
+                  final_signature: "متحف الفكر — لأن الفكر هو ما يجعلنا خالدين."
+              }}
+        ];
+        
+        // كائن عالمي لتسهيل الوصول إلى وظائف التطبيق من HTML
+        window.globalApp = {};
+
+        // ==========================================================
+        //         2. وظائف التخزين المحلي (LocalStorage)
+        // ==========================================================
+        
+        // جلب البيانات من التخزين المحلي أو البيانات الأولية
+        function loadSectionsData() {
+            const storedData = localStorage.getItem(STORAGE_KEY);
+            if (storedData) {
+                try {
+                    globalSectionsData = JSON.parse(storedData);
+                    console.log("Sections loaded from localStorage.");
+                    return;
+                } catch (e) {
+                    console.error("Error parsing localStorage data. Using initial data.", e);
+                }
+            }
+            
+            // استخدام البيانات الأولية في حالة عدم وجود بيانات أو وجود خطأ
+            globalSectionsData = initialSectionsData;
+            saveSectionsData(); // حفظ البيانات الأولية للتعديلات المستقبلية
+            console.log("Using initial data and saved to localStorage.");
+        }
+
+        // حفظ البيانات في التخزين المحلي
+        function saveSectionsData() {
+            try {
+                // التأكد من أن الترتيب صحيح قبل الحفظ
+                globalSectionsData.sort((a, b) => a.order - b.order);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(globalSectionsData));
+            } catch (e) {
+                console.error("Error saving data to localStorage.", e);
+                displayError("فشل حفظ البيانات. قد تكون سعة التخزين ممتلئة أو غير متاحة.");
+            }
+        }
+
+        // ==========================================================
+        //         3. وظائف التحكم بالواجهة والتسجيل
+        // ==========================================================
+
+        // وظيفة عرض رسالة خطأ عائمة (Flash Message)
+        function displayError(message) {
+            const errorFlash = document.getElementById('global-error-message');
+            const errorText = document.getElementById('global-error-text');
+            
+            errorText.textContent = message;
+            errorFlash.classList.remove('hidden');
+            setTimeout(() => {
+                errorFlash.classList.remove('opacity-0');
+                errorFlash.classList.add('opacity-100');
+            }, 10); 
+
+            // إخفاء الرسالة بعد 5 ثوان
+            setTimeout(() => {
+                errorFlash.classList.remove('opacity-100');
+                errorFlash.classList.add('opacity-0');
+                setTimeout(() => errorFlash.classList.add('hidden'), 500); 
+            }, 5000);
+        }
+
+        // وظيفة عرض الواجهات
+        function showView(viewId) {
+            const views = ['loader', 'registration-view', 'home-view', 'management-view'];
+            views.forEach(id => {
+                const view = document.getElementById(id);
+                if (view) {
+                    view.classList.add('hidden');
+                }
+            });
+            const activeView = document.getElementById(viewId);
+            if (activeView) {
+                activeView.classList.remove('hidden');
+            }
+        }
+
+        // عند تحميل الصفحة
+        window.onload = () => {
+            loadSectionsData();
+            showView('registration-view');
+        };
+
+        // وظيفة تسجيل المشارك والتحقق من صلاحية المدير
+        document.getElementById('registration-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name').value.trim();
+            const specialty = document.getElementById('specialty').value.trim();
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.classList.add('hidden');
+
+            if (!name || !specialty) {
+                errorMessage.textContent = 'الرجاء إدخال الاسم والتخصص.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            // التحقق من صلاحية المدير
+            if (name === ADMIN_NAME && specialty === ADMIN_SPECIALTY) {
+                globalApp.renderEditableSections();
+                showView('management-view');
+                return;
+            }
+
+            // المستخدم العادي
+            document.getElementById('user-display-name').textContent = name;
+            globalApp.renderHomeView(); // تحميل الأقسام الديناميكية
+            showView('home-view');
+        });
+
+        // ==========================================================
+        //         4. وظائف الواجهة الرئيسية (للمستخدم العادي)
+        // ==========================================================
+
+        globalApp.fetchSections = () => {
+            // يتم الإرجاع مباشرة من البيانات في الذاكرة
+             return globalSectionsData;
+        };
+
+        globalApp.renderHomeView = () => {
+            const sections = globalApp.fetchSections();
+            const listElement = document.getElementById('dynamic-sections-list');
+            listElement.innerHTML = '';
+            
+            sections.forEach(section => {
+                const div = document.createElement('div');
+                div.className = 'cursor-pointer p-4 bg-blue-100 hover:bg-blue-200 rounded-xl shadow-sm transition duration-200 border-r-4 border-blue-700';
+                
+                // جلب HTML المعدّل
+                const bodyHtml = templates[section.type] ? templates[section.type].render(section.fields) : `<p>خطأ: لم يتم العثور على قالب ${section.type}.</p>`;
+
+                div.onclick = () => globalApp.showSection(section.id, section.title, bodyHtml);
+                div.innerHTML = `
+                    <h3 class="text-xl font-semibold text-blue-900">${section.order}. ${section.menuTitle}</h3>
+                    <p class="text-xs text-gray-500 mt-1 truncate">${section.menuTitle.split(' ')[2] || '...'}</p>
+                `;
+                listElement.appendChild(div);
+            });
+        };
+
+        globalApp.changeView = (target) => {
+            const mainMenu = document.getElementById('main-menu');
+            const sectionContent = document.getElementById('section-content');
+            
+            if (target === 'main-menu') {
+                mainMenu.classList.remove('hidden');
+                sectionContent.classList.add('hidden');
+            }
+        };
+
+        globalApp.showSection = (id, title, bodyHtml) => {
+            document.getElementById('section-title').textContent = title;
+            document.getElementById('section-body').innerHTML = bodyHtml;
+            
+            document.getElementById('main-menu').classList.add('hidden');
+            document.getElementById('section-content').classList.remove('hidden');
+        };
+
+        // ==========================================================
+        //          5. وظائف واجهة الإدارة (للمدير)
+        // ==========================================================
+
+        // عرض قائمة الأقسام القابلة للتعديل
+        globalApp.renderEditableSections = () => {
+            const sections = globalApp.fetchSections();
+            const listElement = document.getElementById('editable-sections-list');
+            listElement.innerHTML = '';
+            
+            sections.forEach(section => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-4 bg-stone-200 hover:bg-stone-300 rounded-lg shadow-sm border-r-4 border-rose-600 transition duration-200';
+                div.innerHTML = `
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-rose-800">${section.order}. ${section.menuTitle}</h3>
+                        <p class="text-xs text-gray-500">القالب: ${section.type}</p>
+                    </div>
+                    <button onclick="globalApp.openEditorModal('${section.id}')" class="py-1 px-3 bg-rose-700 text-white text-sm rounded-md hover:bg-rose-800 transition ml-2">تعديل</button>
+                `;
+                listElement.appendChild(div);
+            });
+             if (sections.length === 0) {
+                 listElement.innerHTML = '<p class="text-center text-gray-500">لا توجد أقسام حالياً. يرجى إضافة قسم جديد.</p>';
+            }
+        };
+        
+        // توليد حقول النموذج بناءً على القالب
+        function generateEditorFields(sectionData) {
+            const container = document.getElementById('dynamic-editor-fields');
+            container.innerHTML = '';
+            const templateType = sectionData.type || 'basic_highlight';
+            const template = templates[templateType];
+            
+            document.getElementById('editor-type').value = templateType;
+
+            if (!template) {
+                container.innerHTML = `<p class="text-rose-600">خطأ: القالب (${templateType}) غير مدعوم.</p>`;
+                return;
+            }
+
+            template.editorFields.forEach(field => {
+                const div = document.createElement('div');
+                div.className = 'space-y-1';
+                
+                let inputElement;
+                const fieldId = `editor-field-${field.key}`;
+
+                if (field.type === 'textarea') {
+                    inputElement = document.createElement('textarea');
+                    inputElement.className = 'editor-textarea mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-700 focus:border-blue-700';
+                    inputElement.placeholder = field.placeholder || '';
+                } else {
+                    inputElement = document.createElement('input');
+                    inputElement.type = 'text';
+                    inputElement.className = 'mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-700 focus:border-blue-700';
+                }
+                
+                inputElement.id = fieldId;
+                inputElement.required = true;
+                
+                const fieldValue = sectionData.fields ? sectionData.fields[field.key] : '';
+                inputElement.value = fieldValue;
+                
+                const label = document.createElement('label');
+                label.htmlFor = fieldId;
+                label.className = 'block text-sm font-medium text-gray-700';
+                label.textContent = field.label;
+
+                div.appendChild(label);
+                div.appendChild(inputElement);
+                container.appendChild(div);
+            });
+        }
+
+
+        // فتح نموذج التعديل/الإضافة
+        globalApp.openEditorModal = (docId) => {
+            const modal = document.getElementById('editor-modal');
+            const form = document.getElementById('section-editor-form');
+            const saveBtn = document.getElementById('editor-save-btn');
+            const titleText = document.getElementById('editor-title-text');
+            document.getElementById('modal-error-message').classList.add('hidden');
+            
+            form.reset();
+            
+            let sectionData = {};
+            let isNew = docId === 'new';
+
+            if (isNew) {
+                document.getElementById('editor-doc-id').value = '';
+                titleText.textContent = 'إضافة قسم جديد';
+                saveBtn.textContent = 'إنشاء وحفظ';
+                // بيانات القالب الافتراضية للقسم الجديد
+                sectionData = {
+                    type: 'basic_highlight', 
+                    menuTitle: 'قسم جديد', 
+                    title: 'عنوان القسم الجديد', 
+                    fields: { p1: '', p2: '', p3_highlight: '', p4: '' }
+                };
+            } else {
+                titleText.textContent = 'تعديل القسم الحالي';
+                saveBtn.textContent = 'حفظ التعديلات';
+                document.getElementById('editor-doc-id').value = docId;
+                
+                // البحث عن القسم في الذاكرة
+                sectionData = globalSectionsData.find(sec => sec.id === docId);
+                if (!sectionData) {
+                    displayError('فشل العثور على القسم في الذاكرة المحلية.');
+                    return;
+                }
+            }
+
+            document.getElementById('editor-menu-title').value = sectionData.menuTitle || '';
+            document.getElementById('editor-full-title').value = sectionData.title || '';
+            
+            generateEditorFields(sectionData);
+
+            modal.classList.remove('hidden');
+        };
+
+        // إغلاق نموذج التعديل
+        globalApp.closeEditorModal = () => {
+            document.getElementById('editor-modal').classList.add('hidden');
+        };
+        
+        // حفظ التعديلات في الذاكرة المحلية والتخزين
+        document.getElementById('section-editor-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const docId = document.getElementById('editor-doc-id').value;
+            const menuTitle = document.getElementById('editor-menu-title').value;
+            const fullTitle = document.getElementById('editor-full-title').value;
+            const type = document.getElementById('editor-type').value;
+            const saveBtn = document.getElementById('editor-save-btn');
+            const modalError = document.getElementById('modal-error-message');
+            
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'جاري الحفظ...';
+            modalError.classList.add('hidden');
+            
+            // 1. تجميع البيانات من حقول النموذج
+            const newFields = {};
+            const template = templates[type];
+            template.editorFields.forEach(field => {
+                newFields[field.key] = document.getElementById(`editor-field-${field.key}`).value.trim();
+            });
+
+            // 2. تجميع بيانات القسم
+            const sectionData = {
+                menuTitle: menuTitle,
+                title: fullTitle,
+                type: type,
+                fields: newFields
+            };
+
+            try {
+                if (docId) {
+                    // تحديث قسم موجود
+                    const index = globalSectionsData.findIndex(sec => sec.id === docId);
+                    if (index !== -1) {
+                        // دمج البيانات الجديدة مع البيانات الموجودة (مع الحفاظ على الترتيب والـ ID)
+                        globalSectionsData[index] = { 
+                            ...globalSectionsData[index], 
+                            ...sectionData 
+                        };
+                    }
+                } else {
+                    // إضافة قسم جديد
+                    const newId = 'sec-' + Date.now();
+                    const nextOrder = globalSectionsData.length > 0 ? 
+                                       Math.max(...globalSectionsData.map(s => s.order)) + 1 : 1;
+                    
+                    globalSectionsData.push({ 
+                        ...sectionData, 
+                        id: newId,
+                        order: nextOrder 
+                    });
+                }
+                
+                // 3. حفظ التغييرات محلياً وتحديث الواجهات
+                saveSectionsData();
+                globalApp.closeEditorModal();
+                globalApp.renderEditableSections(); 
+                globalApp.renderHomeView(); 
+                console.log("Section saved successfully to localStorage!");
+
+            } catch (error) {
+                console.error("Error saving section:", error);
+                modalError.textContent = `فشل حفظ القسم. الخطأ: ${error.message}.`;
+                modalError.classList.remove('hidden');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = docId ? 'حفظ التعديلات' : 'إنشاء وحفظ';
+            }
+        });
+    </script>
+</body>
+</html>
