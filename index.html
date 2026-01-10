@@ -1,639 +1,1548 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بوابة متحف الفكر وادارة المحتوى (محلي)</title>
-    <!-- تضمين Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-        }
-        /* تدرج الأزرق الليلي مع العمق الرملي */
-        .main-bg {
-            background: linear-gradient(135deg, #1f2937 0%, #171717 100%); /* Deep Zinc/Black-Blue */
-        }
-        /* تنسيق المحتوى ليتناسب مع التصميم */
-        .section-body-rendered p { margin-bottom: 1rem; }
-        .section-body-rendered strong { font-weight: bold; }
-        .section-body-rendered ul { list-style: disc; margin-right: 1.5rem; padding-right: 0.5rem; margin-bottom: 1rem;}
-        .section-body-rendered .highlight-quote {
-            border-right: 4px solid #f59e0b; /* amber-500 */
-            background-color: #fffbeb; /* bg-amber-50 */
-            padding: 1rem;
-            margin-top: 1rem;
-            margin-bottom: 1rem;
-            font-size: 1.25rem;
-            font-style: italic;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-            color: #1f2937; /* text-gray-800 */
-        }
-        .editor-textarea { min-height: 150px; }
-        .error-flash { transition: opacity 0.5s ease-out; }
-    </style>
-</head>
-<body class="main-bg min-h-screen flex items-center justify-center p-4">
-
-    <!-- تم تغيير bg-white إلى bg-stone-100 (لون رملي ناعم) -->
-    <div id="app" class="w-full max-w-4xl bg-stone-100 shadow-2xl rounded-xl p-6 md:p-10 transition-all duration-500">
-        
-        <!-- رسالة الخطأ العامة -->
-        <div id="global-error-message" class="hidden fixed top-0 right-0 m-4 p-3 bg-rose-700 text-white rounded-lg shadow-xl z-50 error-flash opacity-0">
-            <p id="global-error-text" class="font-semibold"></p>
-        </div>
-
-        <!-- Loader / مؤشر التحميل - تم تبسيطه -->
-        <div id="loader" class="flex flex-col items-center justify-center h-96 text-gray-700">
-            <svg class="animate-spin h-8 w-8 text-blue-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="mt-4 text-lg">جارِ تهيئة بيانات التطبيق المحلية...</p>
-        </div>
-
-        <!-- نظام التسجيل (Registration View) -->
-        <div id="registration-view" class="hidden">
-            <h1 class="text-3xl font-extrabold text-blue-900 mb-6 text-center">انضم إلى متحف الفكر</h1>
-            <p class="text-gray-600 mb-8 text-center">أدخل بياناتك لتبدأ في استكشاف أثرك الفكري.</p>
-            
-            <form id="registration-form" class="space-y-6">
-                <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700">الاسم</label>
-                    <input type="text" id="name" name="name" required class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-800 focus:border-blue-800 transition duration-150">
-                </div>
-                
-                <div>
-                    <label for="specialty" class="block text-sm font-medium text-gray-700">التخصص</label>
-                    <input type="text" id="specialty" name="specialty" required class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-800 focus:border-blue-800 transition duration-150">
-                </div>
-                
-                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-lg font-medium text-white bg-blue-800 hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700 transition duration-150">
-                    تسجيل الدخول والاستكشاف
-                </button>
-            </form>
-            <p id="error-message" class="text-rose-600 text-sm mt-4 text-center hidden"></p>
-        </div>
-
-        <!-- الواجهة الرئيسية (Home View - للمستخدم العادي) -->
-        <div id="home-view" class="hidden">
-            <div class="flex justify-between items-center mb-8 pb-4 border-b border-gray-300">
-                <h1 class="text-3xl font-extrabold text-blue-900">أهلاً بك يا <span id="user-display-name">...</span>!</h1>
-                <button onclick="window.location.reload();" class="text-sm text-blue-700 hover:text-blue-900 font-medium">
-                    تسجيل الخروج/العودة للقائمة
-                </button>
-            </div>
-
-            <div id="main-menu" class="space-y-3">
-                <div class="text-center mb-8 p-4 bg-stone-200 rounded-lg shadow-inner">
-                    <h2 class="text-3xl font-extrabold text-blue-900">🎨✨ متحف الفكر</h2>
-                    <p class="text-lg text-gray-600 mt-1">حيث تولد الأفكار وتبقى خالدة ✨</p>
-                </div>
-                <!-- قائمة الأقسام يتم توليدها ديناميكياً هنا -->
-                <div id="dynamic-sections-list">
-                    <!-- سيتم ملؤها بواسطة JS -->
-                </div>
-            </div>
-
-            <!-- محتوى القسم للمستخدم العادي -->
-            <div id="section-content" class="hidden bg-stone-200 p-6 rounded-lg shadow-inner">
-                <h2 id="section-title" class="text-3xl font-bold text-gray-800 mb-4 border-b pb-2 border-gray-400"></h2>
-                <div id="section-body" class="text-gray-700 leading-relaxed text-lg text-right section-body-rendered"></div>
-                <button onclick="globalApp.changeView('main-menu')" class="mt-8 py-2 px-4 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition duration-150">
-                    العودة للقائمة الرئيسية
-                </button>
-            </div>
-        </div>
-
-        <!-- واجهة الإدارة والمحتوى (Management View - للمدير) -->
-        <div id="management-view" class="hidden">
-            <div class="flex justify-between items-center mb-8 pb-4 border-b border-rose-200">
-                <h1 class="text-3xl font-extrabold text-rose-800">🔐 لوحة إدارة المحتوى (التخزين المحلي)</h1>
-                <button onclick="window.location.reload();" class="text-sm text-rose-700 hover:text-rose-900 font-medium">
-                    تسجيل الخروج
-                </button>
-            </div>
-            
-            <!-- زر الإضافة -->
-            <button onclick="globalApp.openEditorModal('new')" class="mb-6 py-2 px-4 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition duration-150 shadow-md">
-                + إضافة قسم جديد (قالب بسيط)
-            </button>
-
-            <!-- قائمة الأقسام القابلة للتعديل -->
-            <div class="space-y-3" id="editable-sections-list">
-                <!-- سيتم ملؤها بواسطة JS -->
-            </div>
-        </div>
-
-        <!-- نموذج التعديل (Modal/Form) -->
-        <div id="editor-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div class="bg-stone-100 rounded-xl shadow-2xl w-full max-w-2xl p-6 relative overflow-y-auto max-h-screen">
-                <h2 id="editor-title-text" class="text-2xl font-bold text-blue-900 mb-4 border-b pb-2">تعديل القسم</h2>
-                <form id="section-editor-form" class="space-y-4">
-                    <input type="hidden" id="editor-doc-id">
-                    <input type="hidden" id="editor-type">
-                    
-                    <div>
-                        <label for="editor-menu-title" class="block text-sm font-medium text-gray-700">عنوان القائمة (للاختصار)</label>
-                        <input type="text" id="editor-menu-title" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-700 focus:border-blue-700">
-                    </div>
-
-                    <div>
-                        <label for="editor-full-title" class="block text-sm font-medium text-gray-700">العنوان الكامل (داخل القسم)</label>
-                        <input type="text" id="editor-full-title" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-700 focus:border-blue-700">
-                    </div>
-                    
-                    <div id="dynamic-editor-fields" class="space-y-4 border p-4 rounded-lg bg-stone-200">
-                        <!-- حقول التعديل البسيطة (النص الصافي) يتم توليدها هنا -->
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3 space-x-reverse">
-                        <button type="button" onclick="globalApp.closeEditorModal()" class="py-2 px-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition duration-150">إلغاء</button>
-                        <button type="submit" id="editor-save-btn" class="py-2 px-4 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition duration-150">حفظ التعديلات</button>
-                    </div>
-                </form>
-                
-                <p id="modal-error-message" class="text-rose-600 text-sm mt-4 text-center hidden"></p>
-            </div>
-        </div>
+<!doctype html>
+<html lang="ar" dir="rtl" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>متحف الفكر - بوابة الإبداع الفكري الرقمية</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&amp;family=Tajawal:wght@300;400;500;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+    }
+    * {
+      font-family: 'Tajawal', sans-serif;
+    }
+    .arabic-quote {
+      font-family: 'Amiri', serif;
+    }
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    }
+    .card-hover {
+      transition: all 0.3s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    .text-gradient {
+      background: linear-gradient(135deg, #e94560, #f39c12, #e94560);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradient-shift 3s ease infinite;
+    }
+    @keyframes gradient-shift {
+      0%, 100% { background-position: 0% center; }
+      50% { background-position: 100% center; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .float-animation {
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(233, 69, 96, 0.3); }
+      50% { box-shadow: 0 0 40px rgba(233, 69, 96, 0.6); }
+    }
+    .pulse-glow {
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+    .sidebar-item {
+      transition: all 0.2s ease;
+    }
+    .sidebar-item:hover {
+      background: rgba(233, 69, 96, 0.2);
+      padding-right: 1.5rem;
+    }
+    .sidebar-item.active {
+      background: rgba(233, 69, 96, 0.3);
+      border-right: 3px solid #e94560;
+    }
+    .modal-overlay {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(5px);
+    }
+    .notification-badge {
+      animation: bounce 1s ease infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #e94560, #f39c12);
+      color: white;
+    }
+    .idea-card {
+      background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .category-badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.6rem;
+    }
+    .stats-card {
+      background: linear-gradient(145deg, rgba(233, 69, 96, 0.2), rgba(243, 156, 18, 0.1));
+    }
+    .loading-spinner {
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #e94560;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .toast {
+      animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes fadeOut {
+      to { opacity: 0; transform: translateX(100%); }
+    }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .line-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .sidebar-hidden {
+      transform: translateX(100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .sidebar-visible {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+    #sidebar {
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
+    }
+    .menu-icon {
+      cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+    .menu-icon:hover {
+      transform: scale(1.1);
+    }
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .fade-in-up {
+      animation: fadeInUp 0.6s ease forwards;
+    }
+    .quote-card {
+      background: linear-gradient(145deg, rgba(233, 69, 96, 0.15), rgba(243, 156, 18, 0.1));
+      border-right: 4px solid #e94560;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+ <body class="h-full gradient-bg text-white overflow-auto">
+  <div id="app" class="h-full"><!-- Toast Container -->
+   <div id="toast-container" class="fixed top-4 left-4 z-50 flex flex-col gap-2"></div><!-- Loading Screen -->
+   <div id="loading-screen" class="fixed inset-0 gradient-bg flex items-center justify-center z-50">
+    <div class="text-center">
+     <div class="loading-spinner mx-auto mb-4"></div>
+     <p class="text-xl text-gray-300">جاري تحميل متحف الفكر...</p>
     </div>
+   </div><!-- Login Page -->
+   <div id="login-page" class="hidden h-full flex items-center justify-center p-4">
+    <div class="glass-effect rounded-3xl p-8 max-w-md w-full">
+     <div class="text-center mb-8">
+      <div class="text-6xl mb-4 float-animation">
+       🏛️
+      </div>
+      <h1 id="login-title" class="text-3xl font-bold text-gradient mb-2">متحف الفكر</h1>
+      <p id="login-subtitle" class="text-gray-400">بوابة الإبداع الفكري الرقمية</p>
+     </div>
+     <form id="login-form" class="space-y-6">
+      <div><label for="login-name" class="block text-sm font-medium mb-2 text-gray-300">الاسم</label> <input type="text" id="login-name" required class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500 transition" placeholder="أدخل اسمك">
+      </div>
+      <div><label for="login-specialty" class="block text-sm font-medium mb-2 text-gray-300">التخصص</label> <input type="text" id="login-specialty" required class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500 transition" placeholder="أدخل تخصصك">
+      </div><button type="submit" id="login-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-pink-600 to-orange-500 text-white font-bold text-lg hover:opacity-90 transition pulse-glow"> 🚀 دخول المتحف </button>
+     </form>
+     <p id="login-welcome" class="text-center text-gray-500 text-sm mt-6">حيث تتحول الأفكار إلى إرث خالد</p>
+    </div>
+   </div><!-- Main Dashboard -->
+   <div id="dashboard" class="hidden h-full flex relative"><!-- Menu Toggle Button --> <button id="menu-toggle" class="fixed top-6 right-6 z-40 w-14 h-14 rounded-full glass-effect flex items-center justify-center menu-icon"> <span class="text-2xl">🏛️</span> </button> <!-- Sidebar -->
+    <aside id="sidebar" class="fixed left-0 top-0 h-full w-64 glass-effect border-l border-white/10 flex flex-col z-30 sidebar-hidden">
+     <div class="p-6 border-b border-white/10">
+      <div class="flex items-center gap-3"><span class="text-3xl">🏛️</span>
+       <div>
+        <h2 id="sidebar-title" class="font-bold text-lg">متحف الفكر</h2>
+        <p class="text-xs text-gray-400">لوحة التحكم</p>
+       </div>
+      </div>
+     </div>
+     <nav class="flex-1 p-4 space-y-2 overflow-auto"><button onclick="navigateTo('home')" class="sidebar-item active w-full text-right px-4 py-3 rounded-xl flex items-center gap-3" data-section="home"> <span>🏠</span> <span>الرئيسية</span> </button> <button onclick="navigateTo('ideas')" class="sidebar-item w-full text-right px-4 py-3 rounded-xl flex items-center gap-3" data-section="ideas"> <span>💡</span> <span>الأفكار</span> </button> <button onclick="navigateTo('content')" class="sidebar-item w-full text-right px-4 py-3 rounded-xl flex items-center gap-3" data-section="content"> <span>📚</span> <span>المحتوى</span> </button> <button onclick="navigateTo('philosophy')" class="sidebar-item w-full text-right px-4 py-3 rounded-xl flex items-center gap-3" data-section="philosophy"> <span>🧠</span> <span>الفلسفة</span> </button> <button onclick="navigateTo('quotes')" class="sidebar-item w-full text-right px-4 py-3 rounded-xl flex items-center gap-3" data-section="quotes"> <span>✨</span> <span>عبارات ملهمة</span> </button> <button onclick="navigateTo('members')" id="members-btn" class="sidebar-item w-full text-right px-4 py-3 rounded-xl flex items-center gap-3 hidden" data-section="members"> <span>👥</span> <span>الأعضاء</span> </button> <button onclick="navigateTo('suggestions')" id="suggestions-btn" class="sidebar-item w-full text-right px-4 py-3 rounded-xl flex items-center gap-3 relative" data-section="suggestions"> <span>📝</span> <span>الاقتراحات</span> <span id="suggestions-badge" class="hidden absolute left-2 bg-pink-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center notification-badge">0</span> </button> <button onclick="navigateTo('invites')" id="invites-btn" class="sidebar-item w-full text-right px-4 py-3 rounded-xl flex items-center gap-3 hidden" data-section="invites"> <span>🎫</span> <span>رموز الدعوة</span> </button> <button onclick="navigateTo('settings')" id="settings-btn" class="sidebar-item w-full text-right px-4 py-3 rounded-xl flex items-center gap-3 hidden" data-section="settings"> <span>⚙️</span> <span>الإعدادات</span> </button>
+     </nav>
+     <div class="p-4 border-t border-white/10">
+      <div class="flex items-center gap-3 mb-3">
+       <div class="w-10 h-10 rounded-full bg-gradient-to-r from-pink-600 to-orange-500 flex items-center justify-center text-lg"><span id="user-avatar">👤</span>
+       </div>
+       <div class="flex-1">
+        <p id="user-name" class="font-medium text-sm truncate">مستخدم</p>
+        <p id="user-specialty" class="text-xs text-gray-400 truncate">تخصص</p>
+       </div>
+      </div><button onclick="logout()" class="w-full py-2 rounded-lg bg-white/10 hover:bg-red-500/30 transition text-sm"> 🚪 تسجيل الخروج </button>
+     </div>
+    </aside><!-- Main Content -->
+    <main id="main-content" class="flex-1 overflow-auto p-6"><!-- Home Section -->
+     <section id="home-section" class="space-y-6 max-w-7xl mx-auto">
+      <div class="flex justify-between items-center flex-wrap gap-4 mb-8">
+       <div>
+        <h1 class="text-4xl font-bold mb-2">مرحباً بك في متحف الفكر 🏛️</h1>
+        <p class="text-gray-400">اكتشف الأفكار وشارك إبداعاتك</p>
+       </div><button onclick="openModal('add-idea')" id="add-idea-home-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-pink-600 to-orange-500 hover:opacity-90 transition flex items-center gap-2"> <span>✨</span> <span>فكرة جديدة</span> </button>
+      </div><!-- Featured Quote -->
+      <div class="quote-card rounded-2xl p-8 mb-8 fade-in-up">
+       <div class="text-5xl mb-4 text-center">
+        📖
+       </div>
+       <p class="arabic-quote text-2xl text-center mb-4 leading-relaxed">"الفكرة هي البذرة، والعقل هو التربة، والإبداع هو الثمرة"</p>
+       <p class="text-center text-gray-400">— من حكم متحف الفكر</p>
+      </div><!-- Stats Cards (Admin Only) -->
+      <div id="admin-stats-section" class="hidden grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+       <div class="stats-card rounded-2xl p-6 glass-effect card-hover">
+        <div class="text-4xl mb-2">
+         💡
+        </div>
+        <p class="text-3xl font-bold" id="stats-ideas">0</p>
+        <p class="text-gray-400 text-sm">فكرة مسجلة</p>
+       </div>
+       <div class="stats-card rounded-2xl p-6 glass-effect card-hover">
+        <div class="text-4xl mb-2">
+         👥
+        </div>
+        <p class="text-3xl font-bold" id="stats-members">0</p>
+        <p class="text-gray-400 text-sm">عضو نشط</p>
+       </div>
+       <div class="stats-card rounded-2xl p-6 glass-effect card-hover">
+        <div class="text-4xl mb-2">
+         📝
+        </div>
+        <p class="text-3xl font-bold" id="stats-suggestions">0</p>
+        <p class="text-gray-400 text-sm">اقتراح</p>
+       </div>
+       <div class="stats-card rounded-2xl p-6 glass-effect card-hover">
+        <div class="text-4xl mb-2">
+         ⭐
+        </div>
+        <p class="text-3xl font-bold" id="stats-featured">0</p>
+        <p class="text-gray-400 text-sm">فكرة مميزة</p>
+       </div>
+      </div><!-- Recent Ideas -->
+      <div class="glass-effect rounded-2xl p-6">
+       <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">أحدث الأفكار 💡</h2><button onclick="navigateTo('ideas')" class="text-pink-500 hover:underline text-sm">عرض الكل ←</button>
+       </div>
+       <div id="recent-ideas" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <p class="text-gray-400 col-span-full text-center py-8">لا توجد أفكار بعد. كن أول من يشارك!</p>
+       </div>
+      </div>
+     </section><!-- Ideas Section -->
+     <section id="ideas-section" class="hidden space-y-6 max-w-7xl mx-auto">
+      <div class="flex justify-between items-center flex-wrap gap-4">
+       <div>
+        <h1 class="text-3xl font-bold">معرض الأفكار 💡</h1>
+        <p class="text-gray-400 mt-1">اكتشف الإبداعات الفكرية للأعضاء</p>
+       </div><button onclick="openModal('add-idea')" id="add-idea-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-pink-600 to-orange-500 hover:opacity-90 transition flex items-center gap-2"> <span>✨</span> <span>أضف فكرتك</span> </button>
+      </div><!-- Filter Tabs -->
+      <div class="flex gap-2 flex-wrap"><button onclick="filterIdeas('all')" class="tab-btn active px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition text-sm">الكل</button> <button onclick="filterIdeas('تقنية')" class="tab-btn px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition text-sm">تقنية</button> <button onclick="filterIdeas('فكرية')" class="tab-btn px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition text-sm">فكرية</button> <button onclick="filterIdeas('إبداعية')" class="tab-btn px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition text-sm">إبداعية</button> <button onclick="filterIdeas('علمية')" class="tab-btn px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition text-sm">علمية</button>
+      </div><!-- Ideas Grid -->
+      <div id="ideas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+       <p class="text-gray-400 col-span-full text-center py-12">لا توجد أفكار في هذا القسم بعد</p>
+      </div>
+     </section><!-- Content Section -->
+     <section id="content-section" class="hidden space-y-6 max-w-5xl mx-auto">
+      <div>
+       <h1 class="text-3xl font-bold mb-2">المحتوى الفكري 📚</h1>
+       <p class="text-gray-400">مقالات ونصوص فكرية ملهمة</p>
+      </div>
+      <div class="space-y-6"><!-- Article 1 -->
+       <div class="glass-effect rounded-2xl p-8 card-hover">
+        <div class="flex items-start gap-4 mb-4">
+         <div class="text-4xl">
+          📖
+         </div>
+         <div>
+          <h2 class="text-2xl font-bold mb-2">قوة الفكرة في تغيير الواقع</h2>
+          <p class="text-sm text-gray-400">مقالة فكرية</p>
+         </div>
+        </div>
+        <p class="text-gray-300 leading-relaxed mb-4">الأفكار هي البذور التي تنبت في عقولنا لتصبح واقعاً نعيشه. كل اختراع عظيم، كل حركة تغيير، كل ثورة حضارية، بدأت بفكرة بسيطة في عقل إنسان واحد. لكن الفكرة وحدها لا تكفي، فهي تحتاج إلى العزيمة والإصرار والعمل الجاد لتتحول من خيال إلى حقيقة ملموسة تؤثر في حياة الملايين.</p>
+        <p class="text-gray-300 leading-relaxed">في هذا المتحف، نؤمن بأن كل فكرة تستحق أن تُسمع، وكل صوت يستحق أن يُسمع. نحن هنا لنوفر المساحة الآمنة حيث يمكن للأفكار أن تنمو وتزدهر، حيث يمكن للعقول أن تلتقي وتتحاور، وحيث يمكن للإبداع أن يجد طريقه إلى النور.</p>
+       </div><!-- Article 2 -->
+       <div class="glass-effect rounded-2xl p-8 card-hover">
+        <div class="flex items-start gap-4 mb-4">
+         <div class="text-4xl">
+          🌟
+         </div>
+         <div>
+          <h2 class="text-2xl font-bold mb-2">الإبداع: رحلة لا وجهة</h2>
+          <p class="text-sm text-gray-400">تأملات إبداعية</p>
+         </div>
+        </div>
+        <p class="text-gray-300 leading-relaxed mb-4">الإبداع ليس حدثاً يحدث مرة واحدة، بل هو رحلة مستمرة من الاستكشاف والتجريب والتعلم. كل خطوة في هذه الرحلة تفتح أبواباً جديدة من الإمكانيات، وكل تجربة - سواء نجحت أم فشلت - تضيف إلى خبرتنا وتوسع آفاقنا.</p>
+        <p class="text-gray-300 leading-relaxed">المبدعون الحقيقيون هم أولئك الذين لا يخشون الفشل، بل يرونه فرصة للتعلم والنمو. هم الذين يجرؤون على التفكير خارج الصندوق، والذين يؤمنون بأن لا شيء مستحيل طالما توفرت الإرادة والعزيمة.</p>
+       </div><!-- Article 3 -->
+       <div class="glass-effect rounded-2xl p-8 card-hover">
+        <div class="flex items-start gap-4 mb-4">
+         <div class="text-4xl">
+          🎨
+         </div>
+         <div>
+          <h2 class="text-2xl font-bold mb-2">التنوع الفكري: ثراء الحضارة</h2>
+          <p class="text-sm text-gray-400">رؤية ثقافية</p>
+         </div>
+        </div>
+        <p class="text-gray-300 leading-relaxed mb-4">التنوع الفكري هو ما يجعل الحضارات غنية ومزدهرة. عندما تلتقي الأفكار المختلفة، عندما تتصادم وجهات النظر المتباينة، عندما يحاور العقل النقدي العقل الإبداعي - في تلك اللحظات تولد الحلول المبتكرة والأفكار الثورية.</p>
+        <p class="text-gray-300 leading-relaxed">في متحف الفكر، نحتفي بهذا التنوع. نؤمن بأن كل صوت مهم، وأن كل وجهة نظر تضيف بُعداً جديداً لفهمنا الجماعي. هنا، الاختلاف ليس عائقاً بل هو قوة دافعة نحو الابتكار والتطور.</p>
+       </div>
+      </div>
+     </section><!-- Philosophy Section -->
+     <section id="philosophy-section" class="hidden space-y-6 max-w-5xl mx-auto">
+      <div>
+       <h1 class="text-3xl font-bold mb-2">الفلسفة والتأمل 🧠</h1>
+       <p class="text-gray-400">أسئلة عميقة وتأملات فلسفية</p>
+      </div>
+      <div class="space-y-6"><!-- Philosophy 1 -->
+       <div class="glass-effect rounded-2xl p-8 card-hover">
+        <div class="text-center mb-6">
+         <div class="text-5xl mb-4">
+          🤔
+         </div>
+         <h2 class="text-2xl font-bold arabic-quote">ما هي الفكرة؟</h2>
+        </div>
+        <div class="space-y-4 text-gray-300 leading-relaxed">
+         <p>الفكرة هي أصغر وحدة من المعنى يمكن للعقل أن يستوعبها. هي الشرارة الأولى التي تشعل نار التغيير. لكن ما الذي يجعل فكرة ما عظيمة؟ هل هي الأصالة؟ التأثير؟ القدرة على البقاء؟</p>
+         <p class="pr-6 border-r-4 border-pink-600">ربما العظمة في الفكرة ليست في الفكرة ذاتها، بل في قدرتها على إيقاظ أفكار أخرى في عقول أخرى. الفكرة العظيمة هي تلك التي تنتشر، تتطور، وتلهم الآخرين لإنتاج أفكار جديدة.</p>
+        </div>
+       </div><!-- Philosophy 2 -->
+       <div class="glass-effect rounded-2xl p-8 card-hover">
+        <div class="text-center mb-6">
+         <div class="text-5xl mb-4">
+          ⚖️
+         </div>
+         <h2 class="text-2xl font-bold arabic-quote">الحرية والمسؤولية</h2>
+        </div>
+        <div class="space-y-4 text-gray-300 leading-relaxed">
+         <p>مع حرية التفكير تأتي مسؤولية التفكير النقدي. كل فكرة نتبناها، كل معتقد نحمله، له تأثير على حياتنا وحياة من حولنا. لذا، فإن التفكير العميق ليس رفاهية فكرية، بل هو واجب أخلاقي.</p>
+         <p class="pr-6 border-r-4 border-pink-600">السؤال ليس "ماذا أفكر؟" بل "لماذا أفكر هكذا؟" و "ما هي الأدلة التي تدعم هذا التفكير؟" التفكير النقدي هو الجسر بين الحرية والمسؤولية.</p>
+        </div>
+       </div><!-- Philosophy 3 -->
+       <div class="glass-effect rounded-2xl p-8 card-hover">
+        <div class="text-center mb-6">
+         <div class="text-5xl mb-4">
+          🌍
+         </div>
+         <h2 class="text-2xl font-bold arabic-quote">الفكر والواقع</h2>
+        </div>
+        <div class="space-y-4 text-gray-300 leading-relaxed">
+         <p>هل الأفكار تشكل الواقع أم الواقع يشكل الأفكار؟ هذا السؤال الفلسفي القديم له إجابة عملية: كلاهما صحيح. نحن نتأثر بواقعنا فنفكر بطرق معينة، ثم نستخدم أفكارنا لتغيير هذا الواقع.</p>
+         <p class="pr-6 border-r-4 border-pink-600">المفكر الحقيقي هو من يدرك هذه العلاقة الجدلية ويستخدمها بوعي. هو من ينظر إلى الواقع بعين ناقدة، ثم يستخدم قوة الفكر لتخيل واقع أفضل، وأخيراً يعمل على تحويل هذا التخيل إلى حقيقة.</p>
+        </div>
+       </div><!-- Philosophy 4 -->
+       <div class="glass-effect rounded-2xl p-8 card-hover">
+        <div class="text-center mb-6">
+         <div class="text-5xl mb-4">
+          💭
+         </div>
+         <h2 class="text-2xl font-bold arabic-quote">قيمة الصمت</h2>
+        </div>
+        <div class="space-y-4 text-gray-300 leading-relaxed">
+         <p>في عالم مليء بالضجيج والآراء المتسارعة، الصمت أصبح فضيلة نادرة. لكن الصمت ليس غياباً للفكر، بل هو حضور مكثف له. في الصمت، نستطيع أن نسمع صوتنا الداخلي، أن نرتب أفكارنا، وأن نصل إلى أعماق أعمق من الفهم.</p>
+         <p class="pr-6 border-r-4 border-pink-600">قبل أن تشارك فكرتك مع العالم، امنحها لحظات من الصمت. دعها تنضج في عقلك، تتبلور وتتضح. الأفكار العظيمة ليست تلك التي نقولها بسرعة، بل تلك التي نحتفظ بها حتى تصبح جاهزة للولادة.</p>
+        </div>
+       </div>
+      </div>
+     </section><!-- Quotes Section -->
+     <section id="quotes-section" class="hidden space-y-6 max-w-5xl mx-auto">
+      <div>
+       <h1 class="text-3xl font-bold mb-2">عبارات ملهمة ✨</h1>
+       <p class="text-gray-400">كلمات تضيء العقل وتحرك القلب</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6"><!-- Quote 1 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         💡
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"العقل كالمظلة، لا يعمل إلا إذا كان مفتوحاً"</p>
+        <p class="text-center text-gray-400 text-sm">— حكمة شعبية</p>
+       </div><!-- Quote 2 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         🌟
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"أنا أفكر، إذن أنا موجود"</p>
+        <p class="text-center text-gray-400 text-sm">— رينيه ديكارت</p>
+       </div><!-- Quote 3 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         🎨
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"الخيال أهم من المعرفة، فالمعرفة محدودة أما الخيال فيحيط بالعالم"</p>
+        <p class="text-center text-gray-400 text-sm">— ألبرت أينشتاين</p>
+       </div><!-- Quote 4 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         📚
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"القراءة تمنح الإنسان حيوات متعددة في حياة واحدة"</p>
+        <p class="text-center text-gray-400 text-sm">— من حكم الأدب</p>
+       </div><!-- Quote 5 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         🔥
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"الفكرة التي لا تتحول إلى فعل، ليست أكثر من حلم"</p>
+        <p class="text-center text-gray-400 text-sm">— حكمة عملية</p>
+       </div><!-- Quote 6 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         🌱
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"المعرفة قوة، ولكن التطبيق هو السلطان"</p>
+        <p class="text-center text-gray-400 text-sm">— فرانسيس بيكون</p>
+       </div><!-- Quote 7 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         🎯
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"النجاح ليس نهاية، والفشل ليس قاتلاً، إنها الشجاعة على الاستمرار هي التي تحسب"</p>
+        <p class="text-center text-gray-400 text-sm">— ونستون تشرشل</p>
+       </div><!-- Quote 8 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         🦋
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"التغيير يبدأ من الداخل، وينمو نحو الخارج"</p>
+        <p class="text-center text-gray-400 text-sm">— من حكم التطور الذاتي</p>
+       </div><!-- Quote 9 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         🌊
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"كن كالماء، مرناً وقوياً في آن واحد"</p>
+        <p class="text-center text-gray-400 text-sm">— بروس لي</p>
+       </div><!-- Quote 10 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         ✨
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"الإبداع هو الذكاء وهو يستمتع"</p>
+        <p class="text-center text-gray-400 text-sm">— ألبرت أينشتاين</p>
+       </div><!-- Quote 11 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         🎭
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"الحياة إما مغامرة جريئة أو لا شيء"</p>
+        <p class="text-center text-gray-400 text-sm">— هيلين كيلر</p>
+       </div><!-- Quote 12 -->
+       <div class="quote-card rounded-2xl p-6 card-hover">
+        <div class="text-4xl mb-4 text-center">
+         🏔️
+        </div>
+        <p class="arabic-quote text-xl text-center mb-4 leading-relaxed">"القمة ليست الهدف، بل الرحلة إليها"</p>
+        <p class="text-center text-gray-400 text-sm">— من حكم المسافرين</p>
+       </div>
+      </div>
+     </section><!-- Members Section (Admin Only) -->
+     <section id="members-section" class="hidden space-y-6 max-w-7xl mx-auto">
+      <div>
+       <h1 class="text-3xl font-bold">أعضاء المتحف 👥</h1>
+       <p class="text-gray-400 mt-1">تعرف على المفكرين والمبدعين</p>
+      </div>
+      <div id="members-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+       <p class="text-gray-400 col-span-full text-center py-12">لا يوجد أعضاء مسجلين بعد</p>
+      </div>
+     </section><!-- Suggestions Section -->
+     <section id="suggestions-section" class="hidden space-y-6 max-w-5xl mx-auto">
+      <div class="flex justify-between items-center flex-wrap gap-4">
+       <div>
+        <h1 class="text-3xl font-bold">صندوق الاقتراحات 📝</h1>
+        <p class="text-gray-400 mt-1">شاركنا أفكارك لتطوير المتحف</p>
+       </div><button onclick="openModal('add-suggestion')" id="add-suggestion-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-pink-600 to-orange-500 hover:opacity-90 transition flex items-center gap-2"> <span>💡</span> <span>اقتراح جديد</span> </button>
+      </div>
+      <div id="suggestions-list" class="space-y-4">
+       <p class="text-gray-400 text-center py-12">لا توجد اقتراحات بعد. كن أول من يقترح!</p>
+      </div>
+     </section><!-- Invites Section (Admin Only) -->
+     <section id="invites-section" class="hidden space-y-6 max-w-5xl mx-auto">
+      <div class="flex justify-between items-center flex-wrap gap-4">
+       <div>
+        <h1 class="text-3xl font-bold">رموز الدعوة 🎫</h1>
+        <p class="text-gray-400 mt-1">إنشاء وإدارة رموز الدعوة للأعضاء</p>
+       </div><button onclick="generateInviteCode()" class="px-6 py-3 rounded-xl bg-gradient-to-r from-pink-600 to-orange-500 hover:opacity-90 transition flex items-center gap-2"> <span>➕</span> <span>إنشاء رمز جديد</span> </button>
+      </div>
+      <div id="invites-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+       <p class="text-gray-400 col-span-full text-center py-12">لا توجد رموز دعوة بعد</p>
+      </div>
+     </section><!-- Settings Section (Admin Only) -->
+     <section id="settings-section" class="hidden space-y-6 max-w-5xl mx-auto">
+      <div>
+       <h1 class="text-3xl font-bold">إعدادات المتحف ⚙️</h1>
+       <p class="text-gray-400 mt-1">إدارة وتخصيص المتحف</p>
+      </div>
+      <div class="glass-effect rounded-2xl p-6 space-y-6">
+       <h3 class="text-xl font-bold mb-4">إدارة المحتوى</h3>
+       <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><button onclick="exportData()" class="p-4 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-3"> <span class="text-2xl">📤</span>
+         <div class="text-right">
+          <p class="font-medium">تصدير البيانات</p>
+          <p class="text-sm text-gray-400">تحميل نسخة احتياطية</p>
+         </div></button> <button onclick="clearAllData()" class="p-4 rounded-xl bg-red-500/20 hover:bg-red-500/30 transition flex items-center gap-3"> <span class="text-2xl">🗑️</span>
+         <div class="text-right">
+          <p class="font-medium">حذف جميع البيانات</p>
+          <p class="text-sm text-gray-400">إعادة تعيين المتحف</p>
+         </div></button>
+       </div>
+       <div class="border-t border-white/10 pt-6">
+        <h4 class="font-medium mb-4">إحصائيات النظام</h4>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+         <div class="bg-white/5 rounded-xl p-4">
+          <p class="text-2xl font-bold" id="admin-stats-total">0</p>
+          <p class="text-xs text-gray-400">إجمالي السجلات</p>
+         </div>
+         <div class="bg-white/5 rounded-xl p-4">
+          <p class="text-2xl font-bold" id="admin-stats-ideas">0</p>
+          <p class="text-xs text-gray-400">الأفكار</p>
+         </div>
+         <div class="bg-white/5 rounded-xl p-4">
+          <p class="text-2xl font-bold" id="admin-stats-members">0</p>
+          <p class="text-xs text-gray-400">الأعضاء</p>
+         </div>
+         <div class="bg-white/5 rounded-xl p-4">
+          <p class="text-2xl font-bold" id="admin-stats-suggestions">0</p>
+          <p class="text-xs text-gray-400">الاقتراحات</p>
+         </div>
+        </div>
+       </div>
+      </div>
+     </section><!-- Idea Detail View -->
+     <section id="idea-detail-section" class="hidden max-w-5xl mx-auto"><button onclick="closeIdeaDetail()" class="mb-6 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition flex items-center gap-2"> <span>→</span> <span>العودة</span> </button>
+      <div id="idea-detail-content"><!-- Content will be dynamically inserted -->
+      </div>
+     </section>
+    </main>
+   </div><!-- Add Idea Modal -->
+   <div id="add-idea-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+    <div class="glass-effect rounded-2xl p-6 max-w-lg w-full max-h-[90%] overflow-auto">
+     <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold">✨ فكرة جديدة</h2><button onclick="closeModal('add-idea')" class="text-gray-400 hover:text-white text-2xl">×</button>
+     </div>
+     <form id="idea-form" class="space-y-4">
+      <div><label for="idea-title" class="block text-sm font-medium mb-2">عنوان الفكرة</label> <input type="text" id="idea-title" required class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500" placeholder="عنوان مختصر وجذاب">
+      </div>
+      <div><label for="idea-category" class="block text-sm font-medium mb-2">التصنيف</label> <select id="idea-category" required class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:border-pink-500"> <option value="" class="bg-gray-800">اختر التصنيف</option> <option value="تقنية" class="bg-gray-800">تقنية 💻</option> <option value="فكرية" class="bg-gray-800">فكرية 🧠</option> <option value="إبداعية" class="bg-gray-800">إبداعية 🎨</option> <option value="علمية" class="bg-gray-800">علمية 🔬</option> </select>
+      </div>
+      <div><label for="idea-content" class="block text-sm font-medium mb-2">تفاصيل الفكرة</label> <textarea id="idea-content" required rows="4" class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500 resize-none" placeholder="اشرح فكرتك بالتفصيل..."></textarea>
+      </div><button type="submit" id="submit-idea-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-pink-600 to-orange-500 text-white font-bold hover:opacity-90 transition"> 🚀 نشر الفكرة </button>
+     </form>
+    </div>
+   </div><!-- Add Suggestion Modal -->
+   <div id="add-suggestion-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+    <div class="glass-effect rounded-2xl p-6 max-w-lg w-full max-h-[90%] overflow-auto">
+     <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold">💡 اقتراح جديد</h2><button onclick="closeModal('add-suggestion')" class="text-gray-400 hover:text-white text-2xl">×</button>
+     </div>
+     <form id="suggestion-form" class="space-y-4">
+      <div><label for="suggestion-type" class="block text-sm font-medium mb-2">نوع الاقتراح</label> <select id="suggestion-type" required class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:border-pink-500"> <option value="" class="bg-gray-800">اختر النوع</option> <option value="تصميم" class="bg-gray-800">تصميم 🎨</option> <option value="محتوى" class="bg-gray-800">محتوى 📝</option> <option value="ميزات" class="bg-gray-800">ميزات جديدة ✨</option> <option value="تحسينات" class="bg-gray-800">تحسينات 🔧</option> <option value="أخرى" class="bg-gray-800">أخرى 💬</option> </select>
+      </div>
+      <div><label for="suggestion-title" class="block text-sm font-medium mb-2">عنوان الاقتراح</label> <input type="text" id="suggestion-title" required class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500" placeholder="عنوان مختصر للاقتراح">
+      </div>
+      <div><label for="suggestion-content" class="block text-sm font-medium mb-2">تفاصيل الاقتراح</label> <textarea id="suggestion-content" required rows="4" class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500 resize-none" placeholder="اشرح اقتراحك بالتفصيل..."></textarea>
+      </div><button type="submit" id="submit-suggestion-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-pink-600 to-orange-500 text-white font-bold hover:opacity-90 transition"> 📤 إرسال الاقتراح </button>
+     </form>
+    </div>
+   </div><!-- Delete Confirmation Modal -->
+   <div id="delete-confirm-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+    <div class="glass-effect rounded-2xl p-6 max-w-sm w-full text-center">
+     <div class="text-5xl mb-4">
+      ⚠️
+     </div>
+     <h3 class="text-xl font-bold mb-2">تأكيد الحذف</h3>
+     <p class="text-gray-400 mb-6" id="delete-confirm-text">هل أنت متأكد من حذف هذا العنصر؟</p>
+     <div class="flex gap-3"><button onclick="closeModal('delete-confirm')" class="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition"> إلغاء </button> <button id="confirm-delete-btn" class="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-700 transition"> حذف </button>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+    // App State
+    let appData = [];
+    let currentUser = null;
+    let currentFilter = 'all';
+    let deleteTarget = null;
+    let recordCount = 0;
+    let isSidebarVisible = false;
 
-    <script>
-        // ==========================================================
-        //         1. تعريف البيانات والقوالب الأساسية
-        // ==========================================================
+    // Config
+    const defaultConfig = {
+      site_title: 'متحف الفكر',
+      site_subtitle: 'بوابة الإبداع الفكري الرقمية',
+      welcome_message: 'حيث تتحول الأفكار إلى إرث خالد',
+      primary_color: '#e94560',
+      secondary_color: '#1a1a2e',
+      text_color: '#ffffff',
+      accent_color: '#f39c12',
+      surface_color: '#16213e',
+      font_family: 'Tajawal',
+      font_size: 16
+    };
 
-        const ADMIN_NAME = 'MUF';
-        const ADMIN_SPECIALTY = 'CS';
-        const STORAGE_KEY = 'muf_sections_data'; // مفتاح التخزين المحلي
+    const ADMIN_NAME = 'Rasha';
+    const ADMIN_SPECIALTY = '20250929';
 
-        let globalSectionsData = []; // سيتم تخزين بيانات الأقسام هنا في الذاكرة
+    // Data Handler
+    const dataHandler = {
+      onDataChanged(data) {
+        appData = data;
+        recordCount = data.length;
+        updateUI();
+      }
+    };
 
-        // تعريف القوالب (Template Definitions) - كما كانت في الكود الأصلي
-        const templates = {
-            'basic_highlight': {
-                editorFields: [
-                    { key: 'p1', label: 'الفقرة الافتتاحية', type: 'textarea' },
-                    { key: 'p2', label: 'الفقرة الثانية', type: 'textarea' },
-                    { key: 'p3_highlight', label: 'الجملة البارزة والملخصة (ستظهر بخط عريض وبارز)', type: 'textarea' },
-                    { key: 'p4', label: 'فقرة الختام', type: 'textarea' }
-                ],
-                render: (fields) => `
-                    <p class="text-xl">${fields.p1}</p>
-                    <p class="mt-4">${fields.p2}</p>
-                    <p class="mt-4 text-2xl font-extrabold text-blue-900 leading-snug border-b-2 border-amber-500 pb-2">${fields.p3_highlight}</p>
-                    <p class="mt-4 text-lg text-amber-600">${fields.p4}</p>
-                `
-            },
-            'list_items': {
-                 editorFields: [
-                    { key: 'intro', label: 'نص المقدمة (قبل القائمة)', type: 'textarea' },
-                    { key: 'listTitle', label: 'عنوان القائمة الفرعي', type: 'input' },
-                    { key: 'listItems', label: 'عناصر القائمة (ضع كل عنصر في سطر جديد)', type: 'textarea', placeholder: 'العنصر الأول\nالعنصر الثاني\n...' }
-                ],
-                render: (fields) => {
-                    const items = (fields.listItems || '').split('\n').filter(item => item.trim() !== '');
-                    const iconList = ['✍️', '🎨', '💬', '📚', '⭐', '💎', '💡', '🏆'];
-                    let listHtml = items.map((item, index) => {
-                        const icon = iconList[index % iconList.length];
-                        return `<li class="flex items-start text-lg"><span class="ml-2 text-2xl text-blue-700">${icon}</span> <span class="font-medium">${item.trim()}</span></li>`;
-                    }).join('');
+    // Initialize App
+    async function initApp() {
+      try {
+        if (window.dataSdk) {
+          const result = await window.dataSdk.init(dataHandler);
+          if (!result.isOk) {
+            console.error('Failed to init data SDK');
+          }
+        }
 
-                    return `
-                        <p class="text-xl">${fields.intro}</p>
-                        <p class="mt-4 font-bold text-lg">${fields.listTitle}</p>
-                        <ul class="space-y-3 list-none pr-0">${listHtml}</ul>
-                    `;
-                }
-            },
-            'quote_block': {
-                editorFields: [
-                    { key: 'p1', label: 'الفقرة الأولى', type: 'textarea' },
-                    { key: 'p2', label: 'الفقرة الثانية (تمهيد للاقتباس)', type: 'textarea' },
-                    { key: 'quote', label: 'الاقتباس الرئيسي (سيظهر في إطار بارز)', type: 'textarea' }
-                ],
-                render: (fields) => `
-                    <p class="text-xl">${fields.p1}</p>
-                    <p class="mt-4 text-lg">${fields.p2}</p>
-                    <blockquote class="highlight-quote">${fields.quote}</blockquote>
-                `
-            },
-            'final_call': {
-                 editorFields: [
-                    { key: 'call_title', label: 'جملة الدعوة الرئيسية (ستظهر بخط عريض)', type: 'textarea' },
-                    { key: 'call_subtitle', label: 'جملة التشجيع (أسفل الجملة الرئيسية)', type: 'textarea' },
-                    { key: 'final_signature', label: 'عبارة الختام الرئيسية', type: 'input' }
-                ],
-                render: (fields) => `
-                    <div class="p-6 bg-blue-100 rounded-xl shadow-lg text-center">
-                        <p class="text-3xl font-extrabold mb-4 leading-tight text-blue-900">${fields.call_title}</p>
-                        <p class="text-xl font-light italic text-gray-700">${fields.call_subtitle}</p>
-                    </div>
-                    <p class="mt-8 text-2xl font-extrabold text-blue-900 text-center">🎓 ${fields.final_signature}</p>
-                `
-            }
-        };
+        if (window.elementSdk) {
+          window.elementSdk.init({
+            defaultConfig,
+            onConfigChange: applyConfig,
+            mapToCapabilities: (config) => ({
+              recolorables: [
+                { get: () => config.primary_color || defaultConfig.primary_color, set: (v) => window.elementSdk.setConfig({ primary_color: v }) },
+                { get: () => config.secondary_color || defaultConfig.secondary_color, set: (v) => window.elementSdk.setConfig({ secondary_color: v }) },
+                { get: () => config.text_color || defaultConfig.text_color, set: (v) => window.elementSdk.setConfig({ text_color: v }) },
+                { get: () => config.accent_color || defaultConfig.accent_color, set: (v) => window.elementSdk.setConfig({ accent_color: v }) },
+                { get: () => config.surface_color || defaultConfig.surface_color, set: (v) => window.elementSdk.setConfig({ surface_color: v }) }
+              ],
+              borderables: [],
+              fontEditable: { get: () => config.font_family || defaultConfig.font_family, set: (v) => window.elementSdk.setConfig({ font_family: v }) },
+              fontSizeable: { get: () => config.font_size || defaultConfig.font_size, set: (v) => window.elementSdk.setConfig({ font_size: v }) }
+            }),
+            mapToEditPanelValues: (config) => new Map([
+              ['site_title', config.site_title || defaultConfig.site_title],
+              ['site_subtitle', config.site_subtitle || defaultConfig.site_subtitle],
+              ['welcome_message', config.welcome_message || defaultConfig.welcome_message]
+            ])
+          });
+        }
 
-        // البيانات الأولية (لتشغيل التطبيق لأول مرة فقط)
-        const initialSectionsData = [
-            { id: 'sec-1', order: 1, menuTitle: '🧭 لماذا هذا المشروع مهم؟', title: '🧭 لماذا هذا المشروع مهم؟', type: 'basic_highlight', 
-              fields: { 
-                  p1: "في كل طالب، هناك عالم غير مكتشف: فكرة عميقة، لوحة لم تُعرض، أو كلمة لم تجد من يسمعها.", 
-                  p2: "متحف الفكر ليس مشروعًا عاديًا…",
-                  p3_highlight: "إنه منصة تصنع التاريخ الشخصي والفكري لكل طالب.",
-                  p4: "هنا، نُحوّل الأفكار الصامتة إلى أثر خالد داخل الجامعة."
-              }},
-            { id: 'sec-2', order: 2, menuTitle: '🏛️ ما هو متحف الفكر؟', title: '🏛️ ما هو متحف الفكر؟', type: 'list_items',
-              fields: { 
-                  intro: "هو مساحة فكرية حرة داخل الجامعة — زاوية أو جدار أو قاعة — تجمع بين الفلسفة، الفن، والإبداع.", 
-                  listTitle: "مكان يُعبّر فيه الطلاب عن ذواتهم من خلال:",
-                  listItems: "تأملاتهم وأفكارهم.\nلوحاتهم ورسوماتهم الرمزية.\nاقتباساتهم ومقالاتهم القصيرة.\nأسئلتهم الوجودية ورسائلهم للأجيال القادمة."
-              }},
-            { id: 'sec-3', order: 3, menuTitle: '💡 ما الذي يجعل هذا المشروع مختلفًا؟', title: '💡 ما الذي يجعل هذا المشروع مختلفًا؟', type: 'quote_block',
-              fields: { 
-                  p1: "لأنه يمسّ جوهر الإنسان.", 
-                  p2: "نحن لا نعرض الدرجات أو الشهادات، بل نُظهر ما يجعلنا بشرًا: التفكير، الإحساس، الإبداع.", 
-                  quote: "أنت لست مجرد رقم جامعي، أنت فكرة تستحق أن تُخلّد."
-              }},
-            { id: 'sec-4', order: 4, menuTitle: '🌿 ما الفائدة التي سيجنيها المشاركون؟', title: '🌿 ما الفائدة التي سيجنيها المشاركون؟', type: 'list_items',
-              fields: { 
-                  intro: "لكل طالب أو دكتور يشارك… هناك قيمة حقيقية تعود إليه:", 
-                  listTitle: "الفوائد الرئيسية:",
-                  listItems: "الشهرة الفكرية: سيكون اسمك موقّعًا في “دفتر الذاكرة الفكرية” الذي سيبقى للأجيال.\nالبوابة الأولى لأعمالك: مقالك، رسوماتك، أو أفكارك ستكون البداية لمسيرتك الإبداعية.\nمجتمع فكري حقيقي: تلتقي بعقول تشبهك، تناقش، وتترك أثرك في ذاكرة المكان.\nتجربة إنسانية فريدة: ستعود بعد سنوات لتجد آثارك الفكرية باقية… تشهد على من كنت يومًا."
-              }},
-            { id: 'sec-5', order: 5, menuTitle: '🚀 لماذا يجب أن تدعم هذا المشروع؟', title: '🚀 لماذا يجب أن تدعم هذا المشروع؟', type: 'quote_block',
-              fields: { 
-                  p1: "لأنك حين تدعم متحف الفكر، فأنت لا تدعم ركنًا جامعيًا… بل تدعم فكرة أن الإنسان يصنع أثره بالفكر لا بالمال.", 
-                  p2: "كل لوحة، كل اقتباس، كل مشاركة — هي استثمار في روح الجامعة.",
-                  quote: "من يدعم الفكرة اليوم، سيُذكر غدًا بأنه ساهم في بناء ذاكرة الجامعة الفكرية الأولى."
-              }},
-            { id: 'sec-6', order: 6, menuTitle: '🎭 المستقبل والتوسّع', title: '🎭 المستقبل والتوسّع', type: 'list_items',
-              fields: { 
-                  intro: "متحف الفكر ليس لحظة مؤقتة، بل بذرة مشروع ثقافي دائم.", 
-                  listTitle: "مع الوقت، ستقام من خلاله:",
-                  listItems: "معارض فكرية وفنية دورية.\nمسابقات تحفيزية لأفضل المشاركات.\nندوات حول الفلسفة والإبداع والوعي الذاتي."
-              }},
-            { id: 'sec-7', order: 7, menuTitle: '✨ الدعوة الأخيرة', title: '✨ الدعوة الأخيرة', type: 'final_call',
-              fields: { 
-                  call_title: "شارك بفكرة، كلمة، لوحة، أو حتى سؤال وجودي.", 
-                  call_subtitle: "اترك أثرًا يُشبهك، لأن ما تزرعه اليوم سيكون ذاكرة الجامعة غدًا.",
-                  final_signature: "متحف الفكر — لأن الفكر هو ما يجعلنا خالدين."
-              }}
-        ];
+        // Check for stored user session
+        const storedUser = localStorage.getItem('museum_user');
+        if (storedUser) {
+          currentUser = JSON.parse(storedUser);
+          showDashboard();
+        } else {
+          showLogin();
+        }
+
+        hideLoading();
         
-        // كائن عالمي لتسهيل الوصول إلى وظائف التطبيق من HTML
-        window.globalApp = {};
+        // Setup menu toggle
+        document.getElementById('menu-toggle').addEventListener('click', toggleSidebar);
+      } catch (err) {
+        console.error('Init error:', err);
+        hideLoading();
+        showLogin();
+      }
+    }
 
-        // ==========================================================
-        //         2. وظائف التخزين المحلي (LocalStorage)
-        // ==========================================================
+    // Apply Config
+    async function applyConfig(config) {
+      const c = { ...defaultConfig, ...config };
+      
+      document.getElementById('login-title').textContent = c.site_title;
+      document.getElementById('login-subtitle').textContent = c.site_subtitle;
+      document.getElementById('login-welcome').textContent = c.welcome_message;
+      document.getElementById('sidebar-title').textContent = c.site_title;
+
+      document.body.style.fontFamily = `${c.font_family}, Tajawal, sans-serif`;
+      document.body.style.fontSize = `${c.font_size}px`;
+    }
+
+    // Sidebar Functions
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      isSidebarVisible = !isSidebarVisible;
+      
+      if (isSidebarVisible) {
+        sidebar.classList.remove('sidebar-hidden');
+        sidebar.classList.add('sidebar-visible');
+      } else {
+        sidebar.classList.remove('sidebar-visible');
+        sidebar.classList.add('sidebar-hidden');
+      }
+    }
+
+    function hideSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      isSidebarVisible = false;
+      sidebar.classList.remove('sidebar-visible');
+      sidebar.classList.add('sidebar-hidden');
+    }
+
+    // UI Functions
+    function hideLoading() {
+      document.getElementById('loading-screen').classList.add('hidden');
+    }
+
+    function showLogin() {
+      document.getElementById('login-page').classList.remove('hidden');
+      document.getElementById('dashboard').classList.add('hidden');
+    }
+
+    function showDashboard() {
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      
+      document.getElementById('user-name').textContent = currentUser.name;
+      document.getElementById('user-specialty').textContent = currentUser.specialty;
+      document.getElementById('user-avatar').textContent = currentUser.role === 'admin' ? '👑' : '💡';
+      
+      // Show/hide based on role
+      const isAdmin = currentUser.role === 'admin';
+      
+      document.getElementById('settings-btn').classList.toggle('hidden', !isAdmin);
+      document.getElementById('members-btn').classList.toggle('hidden', !isAdmin);
+      document.getElementById('invites-btn').classList.toggle('hidden', !isAdmin);
+      document.getElementById('admin-stats-section').classList.toggle('hidden', !isAdmin);
+      document.getElementById('add-idea-home-btn').classList.remove('hidden');
+      document.getElementById('add-idea-btn').classList.remove('hidden');
+      
+      updateUI();
+    }
+
+    function navigateTo(section) {
+      const sections = ['home', 'ideas', 'content', 'philosophy', 'quotes', 'members', 'suggestions', 'settings', 'invites'];
+      sections.forEach(s => {
+        const el = document.getElementById(`${s}-section`);
+        const btn = document.querySelector(`[data-section="${s}"]`);
+        if (el) el.classList.add('hidden');
+        if (btn) btn.classList.remove('active');
+      });
+      
+      const activeSection = document.getElementById(`${section}-section`);
+      const activeBtn = document.querySelector(`[data-section="${section}"]`);
+      if (activeSection) activeSection.classList.remove('hidden');
+      if (activeBtn) activeBtn.classList.add('active');
+      
+      document.getElementById('idea-detail-section').classList.add('hidden');
+      
+      // Hide sidebar after navigation
+      hideSidebar();
+    }
+
+    function openModal(type) {
+      document.getElementById(`${type}-modal`).classList.remove('hidden');
+    }
+
+    function closeModal(type) {
+      document.getElementById(`${type}-modal`).classList.add('hidden');
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast px-4 py-3 rounded-xl ${type === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white shadow-lg`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Update UI
+    function updateUI() {
+      const ideas = appData.filter(d => d.type === 'idea');
+      const members = appData.filter(d => d.type === 'member');
+      const suggestions = appData.filter(d => d.type === 'suggestion');
+      const invites = appData.filter(d => d.type === 'invite');
+      const featured = ideas.filter(i => i.status === 'featured');
+
+      if (currentUser?.role === 'admin') {
+        document.getElementById('stats-ideas').textContent = ideas.length;
+        document.getElementById('stats-members').textContent = members.length;
+        document.getElementById('stats-suggestions').textContent = suggestions.length;
+        document.getElementById('stats-featured').textContent = featured.length;
+      }
+
+      const badge = document.getElementById('suggestions-badge');
+      if (currentUser?.role === 'admin') {
+        const pendingSuggestions = suggestions.filter(s => s.status === 'pending').length;
+        if (pendingSuggestions > 0) {
+          badge.textContent = pendingSuggestions;
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      renderRecentIdeas(ideas.slice(-6).reverse());
+      renderIdeasGrid(currentFilter === 'all' ? ideas : ideas.filter(i => i.category === currentFilter));
+      
+      if (currentUser?.role === 'admin') {
+        renderMembers(members);
+        renderSuggestions(suggestions);
+        renderInvites(invites);
+        document.getElementById('admin-stats-total').textContent = appData.length;
+        document.getElementById('admin-stats-ideas').textContent = ideas.length;
+        document.getElementById('admin-stats-members').textContent = members.length;
+        document.getElementById('admin-stats-suggestions').textContent = suggestions.length;
+      }
+    }
+
+    function renderRecentIdeas(ideas) {
+      const container = document.getElementById('recent-ideas');
+      if (ideas.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 col-span-full text-center py-8">لا توجد أفكار بعد. كن أول من يشارك!</p>';
+        return;
+      }
+      
+      container.innerHTML = ideas.map(idea => {
+        const likeCount = idea.likes || 0;
         
-        // جلب البيانات من التخزين المحلي أو البيانات الأولية
-        function loadSectionsData() {
-            const storedData = localStorage.getItem(STORAGE_KEY);
-            if (storedData) {
-                try {
-                    globalSectionsData = JSON.parse(storedData);
-                    console.log("Sections loaded from localStorage.");
-                    return;
-                } catch (e) {
-                    console.error("Error parsing localStorage data. Using initial data.", e);
-                }
-            }
-            
-            // استخدام البيانات الأولية في حالة عدم وجود بيانات أو وجود خطأ
-            globalSectionsData = initialSectionsData;
-            saveSectionsData(); // حفظ البيانات الأولية للتعديلات المستقبلية
-            console.log("Using initial data and saved to localStorage.");
-        }
+        return `
+        <div class="idea-card rounded-xl p-4 card-hover cursor-pointer" onclick="openIdeaDetail('${idea.__backendId}')">
+          <div class="flex justify-between items-start mb-2">
+            <span class="category-badge rounded-full bg-pink-600/30 text-pink-400">${getCategoryEmoji(idea.category)} ${idea.category}</span>
+            ${idea.status === 'featured' ? '<span class="text-yellow-400">⭐</span>' : ''}
+          </div>
+          <h3 class="font-bold text-lg mb-2">${escapeHtml(idea.title)}</h3>
+          <p class="text-gray-400 text-sm mb-3 line-clamp-2">${escapeHtml(idea.content)}</p>
+          <div class="flex justify-between items-center text-xs text-gray-500">
+            <span>👤 ${escapeHtml(idea.author)}</span>
+            <div class="flex items-center gap-2">
+              <span>${likeCount} ❤️</span>
+              <span>${formatDate(idea.createdAt)}</span>
+            </div>
+          </div>
+        </div>
+      `;
+      }).join('');
+    }
 
-        // حفظ البيانات في التخزين المحلي
-        function saveSectionsData() {
-            try {
-                // التأكد من أن الترتيب صحيح قبل الحفظ
-                globalSectionsData.sort((a, b) => a.order - b.order);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(globalSectionsData));
-            } catch (e) {
-                console.error("Error saving data to localStorage.", e);
-                displayError("فشل حفظ البيانات. قد تكون سعة التخزين ممتلئة أو غير متاحة.");
-            }
-        }
+    function renderIdeasGrid(ideas) {
+      const container = document.getElementById('ideas-grid');
+      if (ideas.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 col-span-full text-center py-12">لا توجد أفكار في هذا القسم بعد</p>';
+        return;
+      }
+      
+      container.innerHTML = ideas.map(idea => {
+        const likeCount = idea.likes || 0;
+        const commentCount = appData.filter(d => d.type === 'comment' && d.parentId === idea.__backendId).length;
+        
+        return `
+        <div class="idea-card rounded-2xl p-5 card-hover relative group cursor-pointer" onclick="openIdeaDetail('${idea.__backendId}')">
+          ${currentUser?.role === 'admin' ? `
+            <div class="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition flex gap-1 z-10">
+              <button onclick="event.stopPropagation(); toggleFeatured('${idea.__backendId}')" class="p-2 rounded-lg bg-white/10 hover:bg-yellow-500/30 transition" title="تمييز">
+                ${idea.status === 'featured' ? '⭐' : '☆'}
+              </button>
+              <button onclick="event.stopPropagation(); confirmDelete('idea', '${idea.__backendId}')" class="p-2 rounded-lg bg-white/10 hover:bg-red-500/30 transition" title="حذف">
+                🗑️
+              </button>
+            </div>
+          ` : ''}
+          <div class="flex justify-between items-start mb-3">
+            <span class="category-badge rounded-full bg-pink-600/30 text-pink-400">${getCategoryEmoji(idea.category)} ${idea.category}</span>
+            ${idea.status === 'featured' ? '<span class="text-yellow-400 text-xl">⭐</span>' : ''}
+          </div>
+          <h3 class="font-bold text-xl mb-3">${escapeHtml(idea.title)}</h3>
+          <p class="text-gray-400 mb-4 line-clamp-3">${escapeHtml(idea.content)}</p>
+          <div class="flex justify-between items-center text-sm text-gray-500 pt-3 border-t border-white/10">
+            <span>👤 ${escapeHtml(idea.author)}</span>
+            <div class="flex items-center gap-3">
+              <span>${commentCount} 💬</span>
+              <span>${likeCount} ❤️</span>
+            </div>
+          </div>
+        </div>
+      `;
+      }).join('');
+    }
 
-        // ==========================================================
-        //         3. وظائف التحكم بالواجهة والتسجيل
-        // ==========================================================
+    function renderMembers(members) {
+      const container = document.getElementById('members-grid');
+      if (members.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 col-span-full text-center py-12">لا يوجد أعضاء مسجلين بعد</p>';
+        return;
+      }
+      
+      container.innerHTML = members.map(member => {
+        const roleEmoji = member.role === 'admin' ? '👑' : '💡';
+        
+        return `
+        <div class="glass-effect rounded-xl p-4 flex items-center gap-4 card-hover relative group">
+          ${currentUser?.role === 'admin' ? `
+            <button onclick="confirmDelete('member', '${member.__backendId}')" class="absolute top-2 left-2 opacity-0 group-hover:opacity-100 p-2 rounded-lg bg-white/10 hover:bg-red-500/30 transition">
+              🗑️
+            </button>
+          ` : ''}
+          <div class="w-14 h-14 rounded-full bg-gradient-to-r from-pink-600 to-orange-500 flex items-center justify-center text-2xl">
+            ${roleEmoji}
+          </div>
+          <div>
+            <h3 class="font-bold">${escapeHtml(member.title)}</h3>
+            <p class="text-sm text-gray-400">${escapeHtml(member.specialty || '')}</p>
+            <p class="text-xs text-gray-500">${member.role === 'admin' ? 'مدير' : 'عضو'} • انضم ${formatDate(member.createdAt)}</p>
+          </div>
+        </div>
+      `;
+      }).join('');
+    }
 
-        // وظيفة عرض رسالة خطأ عائمة (Flash Message)
-        function displayError(message) {
-            const errorFlash = document.getElementById('global-error-message');
-            const errorText = document.getElementById('global-error-text');
-            
-            errorText.textContent = message;
-            errorFlash.classList.remove('hidden');
-            setTimeout(() => {
-                errorFlash.classList.remove('opacity-0');
-                errorFlash.classList.add('opacity-100');
-            }, 10); 
+    function renderSuggestions(suggestions) {
+      const container = document.getElementById('suggestions-list');
+      
+      if (suggestions.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-center py-12">لا توجد اقتراحات بعد. كن أول من يقترح!</p>';
+        return;
+      }
+      
+      container.innerHTML = suggestions.map(suggestion => `
+        <div class="glass-effect rounded-xl p-5 card-hover relative group">
+          ${currentUser?.role === 'admin' ? `
+            <div class="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition flex gap-1">
+              <button onclick="updateSuggestionStatus('${suggestion.__backendId}', 'approved')" class="p-2 rounded-lg bg-green-500/20 hover:bg-green-500/40 transition" title="قبول">✅</button>
+              <button onclick="updateSuggestionStatus('${suggestion.__backendId}', 'rejected')" class="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/40 transition" title="رفض">❌</button>
+              <button onclick="confirmDelete('suggestion', '${suggestion.__backendId}')" class="p-2 rounded-lg bg-white/10 hover:bg-red-500/30 transition" title="حذف">🗑️</button>
+            </div>
+          ` : ''}
+          <div class="flex items-start gap-4">
+            <div class="text-3xl">${getSuggestionEmoji(suggestion.category)}</div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="category-badge rounded-full bg-white/10">${suggestion.category}</span>
+                <span class="category-badge rounded-full ${getStatusColor(suggestion.status)}">${getStatusText(suggestion.status)}</span>
+              </div>
+              <h3 class="font-bold text-lg mb-2">${escapeHtml(suggestion.title)}</h3>
+              <p class="text-gray-400 mb-3">${escapeHtml(suggestion.content)}</p>
+              <div class="text-sm text-gray-500">
+                <span>👤 ${escapeHtml(suggestion.author)}</span>
+                <span class="mx-2">•</span>
+                <span>${formatDate(suggestion.createdAt)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
 
-            // إخفاء الرسالة بعد 5 ثوان
-            setTimeout(() => {
-                errorFlash.classList.remove('opacity-100');
-                errorFlash.classList.add('opacity-0');
-                setTimeout(() => errorFlash.classList.add('hidden'), 500); 
-            }, 5000);
-        }
+    function renderInvites(invites) {
+      const container = document.getElementById('invites-grid');
+      if (invites.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 col-span-full text-center py-12">لا توجد رموز دعوة بعد</p>';
+        return;
+      }
+      
+      container.innerHTML = invites.map(invite => `
+        <div class="glass-effect rounded-xl p-5 card-hover relative group">
+          ${currentUser?.role === 'admin' ? `
+            <button onclick="confirmDelete('invite', '${invite.__backendId}')" class="absolute top-2 left-2 opacity-0 group-hover:opacity-100 p-2 rounded-lg bg-white/10 hover:bg-red-500/30 transition">
+              🗑️
+            </button>
+          ` : ''}
+          <div class="flex items-center gap-4 mb-3">
+            <div class="text-3xl">🎫</div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-lg text-pink-400">${invite.inviteCode}</span>
+                <button onclick="copyInviteCode('${invite.inviteCode}')" class="p-1 rounded hover:bg-white/10 transition" title="نسخ">
+                  📋
+                </button>
+              </div>
+              <p class="text-xs text-gray-500">تم الإنشاء ${formatDate(invite.createdAt)}</p>
+            </div>
+          </div>
+          <div class="pt-3 border-t border-white/10">
+            ${invite.usedBy ? `
+              <div class="flex items-center gap-2 text-sm">
+                <span class="text-green-400">✅ مستخدم</span>
+                <span class="text-gray-400">بواسطة: ${escapeHtml(invite.usedBy)}</span>
+              </div>
+            ` : `
+              <span class="text-sm text-gray-400">⏳ متاح للاستخدام</span>
+            `}
+          </div>
+        </div>
+      `).join('');
+    }
 
-        // وظيفة عرض الواجهات
-        function showView(viewId) {
-            const views = ['loader', 'registration-view', 'home-view', 'management-view'];
-            views.forEach(id => {
-                const view = document.getElementById(id);
-                if (view) {
-                    view.classList.add('hidden');
-                }
-            });
-            const activeView = document.getElementById(viewId);
-            if (activeView) {
-                activeView.classList.remove('hidden');
-            }
-        }
+    // Filter Ideas
+    function filterIdeas(category) {
+      currentFilter = category;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      updateUI();
+    }
 
-        // عند تحميل الصفحة
-        window.onload = () => {
-            loadSectionsData();
-            showView('registration-view');
-        };
+    // Helper Functions
+    function getCategoryEmoji(category) {
+      const emojis = { 'تقنية': '💻', 'فكرية': '🧠', 'إبداعية': '🎨', 'علمية': '🔬' };
+      return emojis[category] || '💡';
+    }
 
-        // وظيفة تسجيل المشارك والتحقق من صلاحية المدير
-        document.getElementById('registration-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const name = document.getElementById('name').value.trim();
-            const specialty = document.getElementById('specialty').value.trim();
-            const errorMessage = document.getElementById('error-message');
-            errorMessage.classList.add('hidden');
+    function getSuggestionEmoji(type) {
+      const emojis = { 'تصميم': '🎨', 'محتوى': '📝', 'ميزات': '✨', 'تحسينات': '🔧', 'أخرى': '💬' };
+      return emojis[type] || '💡';
+    }
 
-            if (!name || !specialty) {
-                errorMessage.textContent = 'الرجاء إدخال الاسم والتخصص.';
-                errorMessage.classList.remove('hidden');
-                return;
-            }
+    function getStatusColor(status) {
+      const colors = { 'pending': 'bg-yellow-500/30 text-yellow-400', 'approved': 'bg-green-500/30 text-green-400', 'rejected': 'bg-red-500/30 text-red-400' };
+      return colors[status] || colors.pending;
+    }
 
-            // التحقق من صلاحية المدير
-            if (name === ADMIN_NAME && specialty === ADMIN_SPECIALTY) {
-                globalApp.renderEditableSections();
-                showView('management-view');
-                return;
-            }
+    function getStatusText(status) {
+      const texts = { 'pending': 'قيد المراجعة', 'approved': 'مقبول', 'rejected': 'مرفوض' };
+      return texts[status] || 'قيد المراجعة';
+    }
 
-            // المستخدم العادي
-            document.getElementById('user-display-name').textContent = name;
-            globalApp.renderHomeView(); // تحميل الأقسام الديناميكية
-            showView('home-view');
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function generateRandomCode() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    }
+
+    function hasUserLiked(idea) {
+      if (!idea.likedBy || !currentUser) return false;
+      const likedArray = idea.likedBy.split(',').filter(u => u);
+      return likedArray.includes(currentUser.name);
+    }
+
+    // Event Handlers
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const name = document.getElementById('login-name').value.trim();
+      const specialty = document.getElementById('login-specialty').value.trim();
+
+      let userRole = 'member';
+
+      if (name === ADMIN_NAME && specialty === ADMIN_SPECIALTY) {
+        userRole = 'admin';
+      }
+
+      if (recordCount >= 999) {
+        showToast('تم الوصول للحد الأقصى من السجلات', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('login-btn');
+      btn.disabled = true;
+      btn.textContent = 'جاري التسجيل...';
+
+      currentUser = {
+        name,
+        specialty,
+        role: userRole
+      };
+
+      localStorage.setItem('museum_user', JSON.stringify(currentUser));
+
+      const existingMember = appData.find(d => d.type === 'member' && d.title === name);
+      
+      if (!existingMember && window.dataSdk) {
+        const result = await window.dataSdk.create({
+          type: 'member',
+          title: name,
+          specialty: specialty,
+          role: userRole,
+          isAdmin: userRole === 'admin',
+          createdAt: new Date().toISOString(),
+          status: 'active',
+          content: '',
+          author: name,
+          category: '',
+          inviteCode: '',
+          usedBy: '',
+          likes: 0,
+          likedBy: '',
+          parentId: ''
         });
+        
+        if (!result.isOk) {
+          showToast('حدث خطأ أثناء التسجيل', 'error');
+        }
+      }
 
-        // ==========================================================
-        //         4. وظائف الواجهة الرئيسية (للمستخدم العادي)
-        // ==========================================================
+      btn.disabled = false;
+      btn.textContent = '🚀 دخول المتحف';
+      showDashboard();
+      showToast(`مرحباً ${name}! 🎉`);
+    });
 
-        globalApp.fetchSections = () => {
-            // يتم الإرجاع مباشرة من البيانات في الذاكرة
-             return globalSectionsData;
-        };
+    document.getElementById('idea-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (recordCount >= 999) {
+        showToast('تم الوصول للحد الأقصى من السجلات', 'error');
+        return;
+      }
 
-        globalApp.renderHomeView = () => {
-            const sections = globalApp.fetchSections();
-            const listElement = document.getElementById('dynamic-sections-list');
-            listElement.innerHTML = '';
-            
-            sections.forEach(section => {
-                const div = document.createElement('div');
-                div.className = 'cursor-pointer p-4 bg-blue-100 hover:bg-blue-200 rounded-xl shadow-sm transition duration-200 border-r-4 border-blue-700';
-                
-                // جلب HTML المعدّل
-                const bodyHtml = templates[section.type] ? templates[section.type].render(section.fields) : `<p>خطأ: لم يتم العثور على قالب ${section.type}.</p>`;
+      const btn = document.getElementById('submit-idea-btn');
+      btn.disabled = true;
+      btn.textContent = 'جاري النشر...';
 
-                div.onclick = () => globalApp.showSection(section.id, section.title, bodyHtml);
-                div.innerHTML = `
-                    <h3 class="text-xl font-semibold text-blue-900">${section.order}. ${section.menuTitle}</h3>
-                    <p class="text-xs text-gray-500 mt-1 truncate">${section.menuTitle.split(' ')[2] || '...'}</p>
-                `;
-                listElement.appendChild(div);
-            });
-        };
+      const idea = {
+        type: 'idea',
+        title: document.getElementById('idea-title').value.trim(),
+        category: document.getElementById('idea-category').value,
+        content: document.getElementById('idea-content').value.trim(),
+        author: currentUser.name,
+        specialty: currentUser.specialty,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        isAdmin: currentUser.role === 'admin',
+        role: currentUser.role,
+        inviteCode: '',
+        usedBy: '',
+        likes: 0,
+        likedBy: '',
+        parentId: ''
+      };
 
-        globalApp.changeView = (target) => {
-            const mainMenu = document.getElementById('main-menu');
-            const sectionContent = document.getElementById('section-content');
-            
-            if (target === 'main-menu') {
-                mainMenu.classList.remove('hidden');
-                sectionContent.classList.add('hidden');
+      if (window.dataSdk) {
+        const result = await window.dataSdk.create(idea);
+        if (result.isOk) {
+          showToast('تم نشر فكرتك بنجاح! ✨');
+          closeModal('add-idea');
+          document.getElementById('idea-form').reset();
+        } else {
+          showToast('حدث خطأ أثناء نشر الفكرة', 'error');
+        }
+      }
+
+      btn.disabled = false;
+      btn.textContent = '🚀 نشر الفكرة';
+    });
+
+    document.getElementById('suggestion-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (recordCount >= 999) {
+        showToast('تم الوصول للحد الأقصى من السجلات', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('submit-suggestion-btn');
+      btn.disabled = true;
+      btn.textContent = 'جاري الإرسال...';
+
+      const suggestion = {
+        type: 'suggestion',
+        category: document.getElementById('suggestion-type').value,
+        title: document.getElementById('suggestion-title').value.trim(),
+        content: document.getElementById('suggestion-content').value.trim(),
+        author: currentUser.name,
+        specialty: currentUser.specialty,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        isAdmin: false,
+        role: currentUser.role,
+        inviteCode: '',
+        usedBy: '',
+        likes: 0,
+        likedBy: '',
+        parentId: ''
+      };
+
+      if (window.dataSdk) {
+        const result = await window.dataSdk.create(suggestion);
+        if (result.isOk) {
+          showToast('تم إرسال اقتراحك بنجاح! 💡');
+          closeModal('add-suggestion');
+          document.getElementById('suggestion-form').reset();
+        } else {
+          showToast('حدث خطأ أثناء إرسال الاقتراح', 'error');
+        }
+      }
+
+      btn.disabled = false;
+      btn.textContent = '📤 إرسال الاقتراح';
+    });
+
+    // Admin Functions
+    async function generateInviteCode() {
+      if (recordCount >= 999) {
+        showToast('تم الوصول للحد الأقصى من السجلات', 'error');
+        return;
+      }
+
+      const code = generateRandomCode();
+      
+      if (window.dataSdk) {
+        const result = await window.dataSdk.create({
+          type: 'invite',
+          inviteCode: code,
+          usedBy: '',
+          createdAt: new Date().toISOString(),
+          status: 'active',
+          title: `رمز دعوة ${code}`,
+          content: '',
+          author: currentUser.name,
+          specialty: '',
+          category: '',
+          isAdmin: false,
+          role: '',
+          likes: 0,
+          likedBy: '',
+          parentId: ''
+        });
+        
+        if (result.isOk) {
+          showToast(`تم إنشاء رمز الدعوة: ${code} 🎫`);
+        } else {
+          showToast('حدث خطأ أثناء إنشاء رمز الدعوة', 'error');
+        }
+      }
+    }
+
+    function copyInviteCode(code) {
+      navigator.clipboard.writeText(code).then(() => {
+        showToast('تم نسخ رمز الدعوة 📋');
+      }).catch(() => {
+        showToast('فشل نسخ الرمز', 'error');
+      });
+    }
+
+    async function toggleFeatured(id) {
+      const item = appData.find(d => d.__backendId === id);
+      if (item && window.dataSdk) {
+        const newStatus = item.status === 'featured' ? 'active' : 'featured';
+        const result = await window.dataSdk.update({ ...item, status: newStatus });
+        if (result.isOk) {
+          showToast(newStatus === 'featured' ? 'تم تمييز الفكرة ⭐' : 'تم إلغاء التمييز');
+        }
+      }
+    }
+
+    async function updateSuggestionStatus(id, status) {
+      const item = appData.find(d => d.__backendId === id);
+      if (item && window.dataSdk) {
+        const result = await window.dataSdk.update({ ...item, status });
+        if (result.isOk) {
+          showToast(status === 'approved' ? 'تم قبول الاقتراح ✅' : 'تم رفض الاقتراح ❌');
+        }
+      }
+    }
+
+    async function toggleLike(ideaId) {
+      const idea = appData.find(d => d.__backendId === ideaId);
+      if (!idea || !window.dataSdk) return;
+
+      const likedByArray = idea.likedBy ? idea.likedBy.split(',').filter(u => u) : [];
+      const hasLiked = likedByArray.includes(currentUser.name);
+      
+      let newLikedBy;
+      let newLikes;
+      
+      if (hasLiked) {
+        newLikedBy = likedByArray.filter(u => u !== currentUser.name).join(',');
+        newLikes = Math.max(0, (idea.likes || 0) - 1);
+      } else {
+        likedByArray.push(currentUser.name);
+        newLikedBy = likedByArray.join(',');
+        newLikes = (idea.likes || 0) + 1;
+      }
+      
+      const result = await window.dataSdk.update({
+        ...idea,
+        likes: newLikes,
+        likedBy: newLikedBy
+      });
+      
+      if (result.isOk) {
+        showToast(hasLiked ? 'تم إلغاء الإعجاب' : 'تم الإعجاب بالفكرة ❤️');
+        if (!document.getElementById('idea-detail-section').classList.contains('hidden')) {
+          openIdeaDetail(ideaId);
+        }
+      }
+    }
+
+    async function addComment(ideaId) {
+      const commentInput = document.getElementById('comment-input');
+      const commentText = commentInput.value.trim();
+      
+      if (!commentText) {
+        showToast('الرجاء كتابة تعليق', 'error');
+        return;
+      }
+
+      if (recordCount >= 999) {
+        showToast('تم الوصول للحد الأقصى من السجلات', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('add-comment-btn');
+      btn.disabled = true;
+      btn.textContent = 'جاري الإرسال...';
+
+      if (window.dataSdk) {
+        const result = await window.dataSdk.create({
+          type: 'comment',
+          parentId: ideaId,
+          content: commentText,
+          author: currentUser.name,
+          createdAt: new Date().toISOString(),
+          title: '',
+          specialty: currentUser.specialty,
+          category: '',
+          status: 'active',
+          isAdmin: false,
+          role: currentUser.role,
+          inviteCode: '',
+          usedBy: '',
+          likes: 0,
+          likedBy: ''
+        });
+        
+        if (result.isOk) {
+          showToast('تم إضافة تعليقك 💬');
+          commentInput.value = '';
+          openIdeaDetail(ideaId);
+        } else {
+          showToast('حدث خطأ أثناء إضافة التعليق', 'error');
+        }
+      }
+
+      btn.disabled = false;
+      btn.textContent = '💬 إرسال';
+    }
+
+    function confirmDelete(type, id) {
+      deleteTarget = { type, id };
+      const texts = { idea: 'هذه الفكرة', member: 'هذا العضو', suggestion: 'هذا الاقتراح', invite: 'رمز الدعوة هذا' };
+      document.getElementById('delete-confirm-text').textContent = `هل أنت متأكد من حذف ${texts[type]}؟`;
+      openModal('delete-confirm');
+    }
+
+    document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+      if (deleteTarget && window.dataSdk) {
+        const item = appData.find(d => d.__backendId === deleteTarget.id);
+        if (item) {
+          const result = await window.dataSdk.delete(item);
+          if (result.isOk) {
+            showToast('تم الحذف بنجاح');
+            if (deleteTarget.type === 'idea' && !document.getElementById('idea-detail-section').classList.contains('hidden')) {
+              closeIdeaDetail();
             }
-        };
+          } else {
+            showToast('حدث خطأ أثناء الحذف', 'error');
+          }
+        }
+      }
+      closeModal('delete-confirm');
+      deleteTarget = null;
+    });
 
-        globalApp.showSection = (id, title, bodyHtml) => {
-            document.getElementById('section-title').textContent = title;
-            document.getElementById('section-body').innerHTML = bodyHtml;
+    function exportData() {
+      const dataStr = JSON.stringify(appData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `museum_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('تم تصدير البيانات بنجاح 📤');
+    }
+
+    async function clearAllData() {
+      deleteTarget = { type: 'all' };
+      document.getElementById('delete-confirm-text').textContent = 'هل أنت متأكد من حذف جميع البيانات؟ هذا الإجراء لا يمكن التراجع عنه!';
+      openModal('delete-confirm');
+      
+      document.getElementById('confirm-delete-btn').onclick = async () => {
+        if (window.dataSdk) {
+          for (const item of appData) {
+            await window.dataSdk.delete(item);
+          }
+          showToast('تم حذف جميع البيانات');
+        }
+        closeModal('delete-confirm');
+      };
+    }
+
+    function logout() {
+      localStorage.removeItem('museum_user');
+      currentUser = null;
+      showLogin();
+      showToast('تم تسجيل الخروج');
+    }
+
+    // Idea Detail Functions
+    function openIdeaDetail(ideaId) {
+      const idea = appData.find(d => d.__backendId === ideaId);
+      if (!idea) return;
+
+      const comments = appData.filter(d => d.type === 'comment' && d.parentId === ideaId);
+      const likeCount = idea.likes || 0;
+      const hasLiked = hasUserLiked(idea);
+
+      const detailContent = document.getElementById('idea-detail-content');
+      detailContent.innerHTML = `
+        <div class="glass-effect rounded-3xl p-8 space-y-6">
+          <div class="flex justify-between items-start flex-wrap gap-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="category-badge rounded-full bg-pink-600/30 text-pink-400 text-sm">
+                  ${getCategoryEmoji(idea.category)} ${idea.category}
+                </span>
+                ${idea.status === 'featured' ? '<span class="text-yellow-400 text-2xl">⭐</span>' : ''}
+              </div>
+              <h1 class="text-4xl font-bold mb-4">${escapeHtml(idea.title)}</h1>
+            </div>
+            ${currentUser?.role === 'admin' ? `
+              <div class="flex gap-2">
+                <button onclick="toggleFeatured('${idea.__backendId}')" class="p-3 rounded-xl bg-white/10 hover:bg-yellow-500/30 transition" title="تمييز">
+                  ${idea.status === 'featured' ? '⭐ إلغاء التمييز' : '☆ تمييز'}
+                </button>
+                <button onclick="confirmDelete('idea', '${idea.__backendId}')" class="p-3 rounded-xl bg-white/10 hover:bg-red-500/30 transition" title="حذف">
+                  🗑️ حذف
+                </button>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="flex items-center gap-4 pb-6 border-b border-white/10">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-r from-pink-600 to-orange-500 flex items-center justify-center text-2xl">
+              ${idea.role === 'admin' ? '👑' : '💡'}
+            </div>
+            <div>
+              <h3 class="font-bold text-lg">${escapeHtml(idea.author)}</h3>
+              <p class="text-gray-400">${escapeHtml(idea.specialty || 'عضو')}</p>
+              <p class="text-sm text-gray-500">${formatDate(idea.createdAt)}</p>
+            </div>
+          </div>
+
+          <div class="prose prose-invert max-w-none">
+            <div class="text-lg text-gray-300 leading-relaxed whitespace-pre-wrap">${escapeHtml(idea.content)}</div>
+          </div>
+
+          <div class="flex items-center gap-4 pt-6 border-t border-white/10">
+            <button onclick="toggleLike('${idea.__backendId}')" class="flex items-center gap-2 px-4 py-2 rounded-xl ${hasLiked ? 'bg-pink-600' : 'bg-white/10'} hover:bg-pink-600/80 transition">
+              <span>❤️</span>
+              <span>${likeCount}</span>
+              <span class="text-sm">${hasLiked ? 'أعجبني' : 'إعجاب'}</span>
+            </button>
+            <div class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10">
+              <span>💬</span>
+              <span>${comments.length}</span>
+              <span class="text-sm">تعليق</span>
+            </div>
+          </div>
+
+          <div class="pt-6 border-t border-white/10">
+            <h3 class="text-xl font-bold mb-4">التعليقات (${comments.length})</h3>
             
-            document.getElementById('main-menu').classList.add('hidden');
-            document.getElementById('section-content').classList.remove('hidden');
-        };
-
-        // ==========================================================
-        //          5. وظائف واجهة الإدارة (للمدير)
-        // ==========================================================
-
-        // عرض قائمة الأقسام القابلة للتعديل
-        globalApp.renderEditableSections = () => {
-            const sections = globalApp.fetchSections();
-            const listElement = document.getElementById('editable-sections-list');
-            listElement.innerHTML = '';
+            <div class="mb-6 bg-white/5 rounded-xl p-4">
+              <textarea id="comment-input" rows="3" 
+                class="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-pink-500 resize-none"
+                placeholder="اكتب تعليقك هنا..."></textarea>
+              <button onclick="addComment('${idea.__backendId}')" id="add-comment-btn"
+                class="mt-3 px-6 py-2 rounded-xl bg-gradient-to-r from-pink-600 to-orange-500 hover:opacity-90 transition">
+                💬 إرسال
+              </button>
+            </div>
             
-            sections.forEach(section => {
-                const div = document.createElement('div');
-                div.className = 'flex justify-between items-center p-4 bg-stone-200 hover:bg-stone-300 rounded-lg shadow-sm border-r-4 border-rose-600 transition duration-200';
-                div.innerHTML = `
+            <div class="space-y-4">
+              ${comments.length === 0 ? '<p class="text-gray-400 text-center py-4">لا توجد تعليقات بعد. كن أول من يعلق!</p>' : ''}
+              ${comments.map(comment => `
+                <div class="bg-white/5 rounded-xl p-4">
+                  <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-r from-pink-600 to-orange-500 flex items-center justify-center">
+                      ${comment.role === 'admin' ? '👑' : '💡'}
+                    </div>
                     <div class="flex-1">
-                        <h3 class="text-lg font-semibold text-rose-800">${section.order}. ${section.menuTitle}</h3>
-                        <p class="text-xs text-gray-500">القالب: ${section.type}</p>
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="font-bold">${escapeHtml(comment.author)}</span>
+                        <span class="text-xs text-gray-500">${formatDate(comment.createdAt)}</span>
+                      </div>
+                      <p class="text-gray-300">${escapeHtml(comment.content)}</p>
                     </div>
-                    <button onclick="globalApp.openEditorModal('${section.id}')" class="py-1 px-3 bg-rose-700 text-white text-sm rounded-md hover:bg-rose-800 transition ml-2">تعديل</button>
-                `;
-                listElement.appendChild(div);
-            });
-             if (sections.length === 0) {
-                 listElement.innerHTML = '<p class="text-center text-gray-500">لا توجد أقسام حالياً. يرجى إضافة قسم جديد.</p>';
-            }
-        };
-        
-        // توليد حقول النموذج بناءً على القالب
-        function generateEditorFields(sectionData) {
-            const container = document.getElementById('dynamic-editor-fields');
-            container.innerHTML = '';
-            const templateType = sectionData.type || 'basic_highlight';
-            const template = templates[templateType];
-            
-            document.getElementById('editor-type').value = templateType;
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
 
-            if (!template) {
-                container.innerHTML = `<p class="text-rose-600">خطأ: القالب (${templateType}) غير مدعوم.</p>`;
-                return;
-            }
+      document.querySelectorAll('#main-content > section:not(#idea-detail-section)').forEach(s => s.classList.add('hidden'));
+      document.getElementById('idea-detail-section').classList.remove('hidden');
+    }
 
-            template.editorFields.forEach(field => {
-                const div = document.createElement('div');
-                div.className = 'space-y-1';
-                
-                let inputElement;
-                const fieldId = `editor-field-${field.key}`;
+    function closeIdeaDetail() {
+      document.getElementById('idea-detail-section').classList.add('hidden');
+      const activeSidebarBtn = document.querySelector('.sidebar-item.active');
+      if (activeSidebarBtn) {
+        const section = activeSidebarBtn.getAttribute('data-section');
+        document.getElementById(`${section}-section`).classList.remove('hidden');
+      } else {
+        document.getElementById('home-section').classList.remove('hidden');
+      }
+    }
 
-                if (field.type === 'textarea') {
-                    inputElement = document.createElement('textarea');
-                    inputElement.className = 'editor-textarea mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-700 focus:border-blue-700';
-                    inputElement.placeholder = field.placeholder || '';
-                } else {
-                    inputElement = document.createElement('input');
-                    inputElement.type = 'text';
-                    inputElement.className = 'mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-700 focus:border-blue-700';
-                }
-                
-                inputElement.id = fieldId;
-                inputElement.required = true;
-                
-                const fieldValue = sectionData.fields ? sectionData.fields[field.key] : '';
-                inputElement.value = fieldValue;
-                
-                const label = document.createElement('label');
-                label.htmlFor = fieldId;
-                label.className = 'block text-sm font-medium text-gray-700';
-                label.textContent = field.label;
-
-                div.appendChild(label);
-                div.appendChild(inputElement);
-                container.appendChild(div);
-            });
-        }
-
-
-        // فتح نموذج التعديل/الإضافة
-        globalApp.openEditorModal = (docId) => {
-            const modal = document.getElementById('editor-modal');
-            const form = document.getElementById('section-editor-form');
-            const saveBtn = document.getElementById('editor-save-btn');
-            const titleText = document.getElementById('editor-title-text');
-            document.getElementById('modal-error-message').classList.add('hidden');
-            
-            form.reset();
-            
-            let sectionData = {};
-            let isNew = docId === 'new';
-
-            if (isNew) {
-                document.getElementById('editor-doc-id').value = '';
-                titleText.textContent = 'إضافة قسم جديد';
-                saveBtn.textContent = 'إنشاء وحفظ';
-                // بيانات القالب الافتراضية للقسم الجديد
-                sectionData = {
-                    type: 'basic_highlight', 
-                    menuTitle: 'قسم جديد', 
-                    title: 'عنوان القسم الجديد', 
-                    fields: { p1: '', p2: '', p3_highlight: '', p4: '' }
-                };
-            } else {
-                titleText.textContent = 'تعديل القسم الحالي';
-                saveBtn.textContent = 'حفظ التعديلات';
-                document.getElementById('editor-doc-id').value = docId;
-                
-                // البحث عن القسم في الذاكرة
-                sectionData = globalSectionsData.find(sec => sec.id === docId);
-                if (!sectionData) {
-                    displayError('فشل العثور على القسم في الذاكرة المحلية.');
-                    return;
-                }
-            }
-
-            document.getElementById('editor-menu-title').value = sectionData.menuTitle || '';
-            document.getElementById('editor-full-title').value = sectionData.title || '';
-            
-            generateEditorFields(sectionData);
-
-            modal.classList.remove('hidden');
-        };
-
-        // إغلاق نموذج التعديل
-        globalApp.closeEditorModal = () => {
-            document.getElementById('editor-modal').classList.add('hidden');
-        };
-        
-        // حفظ التعديلات في الذاكرة المحلية والتخزين
-        document.getElementById('section-editor-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const docId = document.getElementById('editor-doc-id').value;
-            const menuTitle = document.getElementById('editor-menu-title').value;
-            const fullTitle = document.getElementById('editor-full-title').value;
-            const type = document.getElementById('editor-type').value;
-            const saveBtn = document.getElementById('editor-save-btn');
-            const modalError = document.getElementById('modal-error-message');
-            
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'جاري الحفظ...';
-            modalError.classList.add('hidden');
-            
-            // 1. تجميع البيانات من حقول النموذج
-            const newFields = {};
-            const template = templates[type];
-            template.editorFields.forEach(field => {
-                newFields[field.key] = document.getElementById(`editor-field-${field.key}`).value.trim();
-            });
-
-            // 2. تجميع بيانات القسم
-            const sectionData = {
-                menuTitle: menuTitle,
-                title: fullTitle,
-                type: type,
-                fields: newFields
-            };
-
-            try {
-                if (docId) {
-                    // تحديث قسم موجود
-                    const index = globalSectionsData.findIndex(sec => sec.id === docId);
-                    if (index !== -1) {
-                        // دمج البيانات الجديدة مع البيانات الموجودة (مع الحفاظ على الترتيب والـ ID)
-                        globalSectionsData[index] = { 
-                            ...globalSectionsData[index], 
-                            ...sectionData 
-                        };
-                    }
-                } else {
-                    // إضافة قسم جديد
-                    const newId = 'sec-' + Date.now();
-                    const nextOrder = globalSectionsData.length > 0 ? 
-                                       Math.max(...globalSectionsData.map(s => s.order)) + 1 : 1;
-                    
-                    globalSectionsData.push({ 
-                        ...sectionData, 
-                        id: newId,
-                        order: nextOrder 
-                    });
-                }
-                
-                // 3. حفظ التغييرات محلياً وتحديث الواجهات
-                saveSectionsData();
-                globalApp.closeEditorModal();
-                globalApp.renderEditableSections(); 
-                globalApp.renderHomeView(); 
-                console.log("Section saved successfully to localStorage!");
-
-            } catch (error) {
-                console.error("Error saving section:", error);
-                modalError.textContent = `فشل حفظ القسم. الخطأ: ${error.message}.`;
-                modalError.classList.remove('hidden');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.textContent = docId ? 'حفظ التعديلات' : 'إنشاء وحفظ';
-            }
-        });
-    </script>
-</body>
-</html>
+    // Initialize
+    initApp();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9bb8a9aae14e4ed3',t:'MTc2ODAxMTI4Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+            </html>
